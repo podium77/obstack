@@ -1,0 +1,290 @@
+{% extends 'base.html.twig' %}
+{% block title %}Kubernetes — {{ env.name }}{% endblock %}
+{% block page_title %}Cluster Kubernetes{% endblock %}
+{% block page_subtitle_content %}{{ env.name }} · {{ env.company.name }}{% endblock %}
+
+{% block topbar_actions %}
+{% if canAdmin %}
+<button onclick="syncCluster()" class="btn btn-sm btn-secondary" id="sync-btn">
+    <i class="ti ti-refresh"></i>Synchroniser
+</button>
+{% endif %}
+<a href="{{ path('env_show', {id: env.id}) }}" class="btn btn-sm btn-secondary">
+    <i class="ti ti-arrow-left"></i>Environnement
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# Résumé cluster #}
+<div class="grid-4 mb-4">
+    <div class="metric-card {{ summary.ready_nodes < summary.total_nodes ? 'warn' : 'ok' }}">
+        <div class="metric-label"><i class="ti ti-server-2"></i>Nodes totaux</div>
+        <div class="metric-value">{{ summary.total_nodes }}</div>
+        <div class="metric-sub">{{ summary.ready_nodes }} prêts</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-crown"></i>Masters</div>
+        <div class="metric-value">{{ summary.master_nodes }}</div>
+        <div class="metric-sub">Control Plane</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-server"></i>Workers</div>
+        <div class="metric-value">{{ summary.worker_nodes }}</div>
+        <div class="metric-sub">Nœuds de charge</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-clock"></i>Dernière sync</div>
+        <div class="metric-value" style="font-size:16px">
+            {{ summary.last_sync ? summary.last_sync|date('H:i') : '—' }}
+        </div>
+        <div class="metric-sub">{{ summary.last_sync ? summary.last_sync|date('d/m/Y') : 'Jamais synchronisé' }}</div>
+    </div>
+</div>
+
+{# Topologie visuelle du cluster #}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-topology-star-3"></i>Topologie du cluster</div>
+        <div style="font-size:12px;color:var(--color-text-tertiary)">
+            Namespace: <code>{{ env.kubernetesNamespace }}</code>
+        </div>
+    </div>
+    <div class="card-body" style="overflow-x:auto">
+        <div id="cluster-topology" style="display:flex;gap:16px;flex-wrap:wrap;min-height:200px;align-items:flex-start">
+            {% for node in nodes %}
+            <div style="border:1.5px solid {{ node.isMaster ? '#185FA5' : '#e2e6ea' }};border-radius:10px;padding:14px;min-width:200px;max-width:240px;background:{{ node.isMaster ? '#eff6ff' : 'var(--color-bg-primary)' }}">
+                {# Node header #}
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                    <div style="width:8px;height:8px;border-radius:50%;background:{{ node.isReady ? '#639922' : '#E24B4A' }};flex-shrink:0"></div>
+                    <div style="flex:1">
+                        <div style="font-weight:600;font-size:13px;word-break:break-all">{{ node.nodeName }}</div>
+                        <div style="font-size:10.5px;color:var(--color-text-tertiary)">{{ node.role.getLabel() }}</div>
+                    </div>
+                    <span class="severity-badge {{ node.isMaster ? 'severity-info' : 'severity-ok' }}" style="font-size:9px">
+                        <i class="ti ti-{{ node.role.getIcon() }}"></i>{{ node.role.value|upper }}
+                    </span>
+                </div>
+
+                {# Node infos #}
+                <div style="font-size:11.5px;color:var(--color-text-secondary);margin-bottom:10px">
+                    <div>IP: <code>{{ node.internalIp ?? '—' }}</code></div>
+                    {% if node.kubernetesVersion %}
+                    <div>K8s: {{ node.kubernetesVersion }}</div>
+                    {% endif %}
+                    <div>CPU: {{ node.cpuCapacity ?? '—' }} | RAM: {{ node.memoryCapacityGb ? node.memoryCapacityGb ~ 'GB' : '—' }}</div>
+                </div>
+
+                {# Métriques node #}
+                {% set metrics = node.currentMetrics %}
+                {% if metrics.cpu_usage_percent is not null %}
+                <div style="margin-bottom:6px">
+                    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+                        <span>CPU</span>
+                        <span style="font-weight:500;color:{{ metrics.cpu_usage_percent >= 90 ? 'var(--color-critical)' : metrics.cpu_usage_percent >= 75 ? 'var(--color-warn)' : 'var(--color-ok)' }}">{{ metrics.cpu_usage_percent }}%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-fill {{ metrics.cpu_usage_percent >= 90 ? 'critical' : metrics.cpu_usage_percent >= 75 ? 'warn' : 'ok' }}"
+                             style="width:{{ metrics.cpu_usage_percent }}%"></div>
+                    </div>
+                </div>
+                <div style="margin-bottom:8px">
+                    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+                        <span>RAM</span>
+                        <span style="font-weight:500">{{ metrics.memory_usage_percent }}%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-fill {{ metrics.memory_usage_percent >= 85 ? 'critical' : metrics.memory_usage_percent >= 70 ? 'warn' : 'ok' }}"
+                             style="width:{{ metrics.memory_usage_percent }}%"></div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {# Pods #}
+                <div style="border-top:1px solid #e2e6ea;padding-top:8px">
+                    <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:6px">
+                        {{ node.podCount }} pod(s) / {{ node.podCapacity ?? '110' }} max
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:80px;overflow:hidden">
+                        {% for pod in node.pods %}
+                        <div title="{{ pod.podName }} ({{ pod.namespace }})"
+                             style="width:10px;height:10px;border-radius:2px;background:{{ pod.isRunning ? '#639922' : pod.isPending ? '#EF9F27' : '#E24B4A' }};cursor:pointer"
+                             onclick="showPodDetail({{ pod.id }}, '{{ pod.podName }}', '{{ pod.namespace }}', '{{ pod.phase }}', {{ pod.restartCount }}, '{{ pod.mainImage }}')">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div style="margin-top:8px">
+                    <a href="{{ path('k8s_node_detail', {id: env.id, nodeId: node.id}) }}" class="btn btn-sm btn-secondary" style="width:100%;justify-content:center">
+                        <i class="ti ti-eye"></i>Détail du node
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <div style="flex:1;text-align:center;padding:40px;color:var(--color-text-tertiary)">
+                <i class="ti ti-hexagon" style="font-size:40px;display:block;margin-bottom:10px;color:var(--color-border)"></i>
+                Aucun node synchronisé.
+                {% if canAdmin %}
+                <br><button onclick="syncCluster()" class="btn btn-sm btn-primary" style="margin-top:12px">
+                    <i class="ti ti-refresh"></i>Synchroniser maintenant
+                </button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        {# Légende #}
+        <div style="display:flex;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border);font-size:11.5px;color:var(--color-text-secondary)">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#639922;margin-right:4px"></span>Running</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#EF9F27;margin-right:4px"></span>Pending</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#E24B4A;margin-right:4px"></span>Failed/Unknown</span>
+        </div>
+    </div>
+</div>
+
+{# Table des nodes #}
+<div class="card">
+    <div class="card-header"><div class="card-header-title"><i class="ti ti-list"></i>Tous les nodes</div></div>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Node</th><th>Rôle</th><th>IP interne</th>
+                    <th>CPU</th><th>RAM</th><th>Pods</th>
+                    <th>Version K8s</th><th>Runtime</th><th>Statut</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for node in nodes %}
+            {% set m = node.currentMetrics %}
+            <tr>
+                <td>
+                    <div style="font-weight:500;display:flex;align-items:center;gap:6px">
+                        <i class="ti ti-{{ node.role.getIcon() }}" style="color:{{ node.isMaster ? '#185FA5' : 'var(--color-text-tertiary)' }}"></i>
+                        {{ node.nodeName }}
+                    </div>
+                    {% if node.osImage %}<div class="text-muted text-sm">{{ node.osImage|slice(0,30) }}</div>{% endif %}
+                </td>
+                <td>
+                    <span class="severity-badge {{ node.isMaster ? 'severity-info' : 'severity-ok' }}">
+                        {{ node.role.getLabel() }}
+                    </span>
+                </td>
+                <td class="font-mono text-sm">{{ node.internalIp ?? '—' }}</td>
+                <td>
+                    {% if m.cpu_usage_percent is not null %}
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <div class="progress" style="width:50px">
+                            <div class="progress-fill {{ m.cpu_usage_percent >= 90 ? 'critical' : m.cpu_usage_percent >= 75 ? 'warn' : 'ok' }}"
+                                 style="width:{{ m.cpu_usage_percent }}%"></div>
+                        </div>
+                        <span style="font-size:12px">{{ m.cpu_usage_percent }}%</span>
+                    </div>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if m.memory_usage_percent is not null %}
+                    <span style="font-size:12px;font-weight:500;color:{{ m.memory_usage_percent >= 85 ? 'var(--color-critical)' : m.memory_usage_percent >= 70 ? 'var(--color-warn)' : 'var(--color-ok)' }}">
+                        {{ m.memory_usage_percent }}%
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    <span style="font-size:12px">{{ node.podCount }} / {{ node.podCapacity ?? 110 }}</span>
+                    {% set crashPods = node.pods|filter(p => p.isCrashLooping)|length %}
+                    {% if crashPods > 0 %}
+                    <span class="severity-badge severity-critical" style="font-size:10px;margin-left:4px">{{ crashPods }} CrashLoop</span>
+                    {% endif %}
+                </td>
+                <td class="font-mono text-sm">{{ node.kubernetesVersion ?? '—' }}</td>
+                <td class="text-sm text-muted">{{ node.containerRuntime ? node.containerRuntime|slice(0,20) : '—' }}</td>
+                <td>
+                    <span class="severity-badge {{ node.isReady ? 'severity-ok' : 'severity-critical' }}">
+                        {{ node.status }}
+                    </span>
+                </td>
+                <td>
+                    <a href="{{ path('k8s_node_detail', {id: env.id, nodeId: node.id}) }}" class="btn btn-icon btn-secondary">
+                        <i class="ti ti-eye" style="font-size:14px"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# Modal détail pod #}
+<div id="pod-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:420px;width:90%">
+        <h3 style="margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="ti ti-box" style="color:#185FA5"></i>
+            <span id="pod-name"></span>
+        </h3>
+        <div id="pod-info"></div>
+        <button onclick="document.getElementById('pod-modal').style.display='none'" class="btn btn-secondary" style="margin-top:16px;width:100%">
+            Fermer
+        </button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+async function syncCluster() {
+    const btn = document.getElementById('sync-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>Synchronisation…';
+
+    const res  = await fetch('{{ path("k8s_sync", {id: env.id}) }}', {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        alert(data.message);
+        location.reload();
+    } else {
+        alert('Erreur: ' + data.error);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-refresh"></i>Synchroniser';
+    }
+}
+
+function showPodDetail(id, name, ns, phase, restarts, image) {
+    document.getElementById('pod-name').textContent = name;
+    document.getElementById('pod-info').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+            <div style="background:#f8f9fb;border-radius:6px;padding:10px">
+                <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px">Namespace</div>
+                <code>${ns}</code>
+            </div>
+            <div style="background:#f8f9fb;border-radius:6px;padding:10px">
+                <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px">Phase</div>
+                <span style="color:${phase==='Running'?'#639922':phase==='Pending'?'#EF9F27':'#E24B4A'};font-weight:600">${phase}</span>
+            </div>
+            <div style="background:#f8f9fb;border-radius:6px;padding:10px">
+                <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px">Redémarrages</div>
+                <span style="color:${restarts>5?'#E24B4A':restarts>0?'#EF9F27':'inherit'};font-weight:600">${restarts}</span>
+            </div>
+            <div style="background:#f8f9fb;border-radius:6px;padding:10px;grid-column:1/-1">
+                <div style="font-size:10px;color:#9ca3af;text-transform:uppercase;margin-bottom:3px">Image</div>
+                <code style="font-size:11px;word-break:break-all">${image || '—'}</code>
+            </div>
+        </div>`;
+    document.getElementById('pod-modal').style.display = 'flex';
+}
+
+const style = document.createElement('style');
+style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(style);
+
+// Actualisation auto toutes les 30s
+setInterval(async () => {
+    const res  = await fetch('{{ path("k8s_api_nodes", {id: env.id}) }}');
+    const data = await res.json();
+    // Mise à jour légère des métriques sans rechargement complet
+}, 30000);
+{% endblock %}

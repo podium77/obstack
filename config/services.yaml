@@ -1,0 +1,63 @@
+parameters:
+    app.platform_base_url: '%env(APP_BASE_URL)%'
+    app.mail_from:  '%env(MAIL_FROM)%'
+    app.mail_admin: '%env(MAIL_ADMIN)%'
+    app.slack_webhook_url: '%env(default::WEBHOOK_SLACK_URL)%'
+    app.teams_webhook_url: '%env(default::WEBHOOK_TEAMS_URL)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Enum/'
+            - '../src/Kernel.php'
+
+    'App\Twig\Extension\obstackExtension':
+        tags: ['twig.extension']
+
+    # Générateur de scripts d'agent
+    App\Service\AgentInstallScriptGenerator:
+        arguments:
+            $platformBaseUrl: '%app.platform_base_url%'
+            $platformApiVersion: 'v1'
+
+    # Service de notifications
+    App\Service\NotificationService:
+        arguments:
+            # $mailFrom:          '%app.mail_from%'
+            $defaultSender: '%app.mail_from%'
+            $mailAdmin:         '%app.mail_admin%'
+            $slackWebhookUrl:   '%app.slack_webhook_url%'
+            $teamsWebhookUrl:   '%app.teams_webhook_url%'
+
+    # Contexte tenant (scope request)
+    App\Service\TenantContext:
+        shared: false
+
+    # Authentificateur multi-tenant
+    App\Security\MultiTenantAuthenticator: ~
+
+    # Collecteur Kubernetes
+    App\Kubernetes\KubernetesCollector: ~
+
+    # Services RCA
+    App\RCA\PyRcaService: ~
+    App\RCA\KnowledgeGraphService: ~
+
+    # Agent SSH
+    App\Agent\SshClient:
+        arguments:
+            $connectTimeoutSeconds: 10
+
+    # Services de monitoring
+    App\Service\Monitoring\PrometheusService: ~
+    App\Service\Monitoring\OpenTelemetryService: ~
+    App\Service\Monitoring\LokiService: ~
+    App\Service\Monitoring\JaegerService: ~

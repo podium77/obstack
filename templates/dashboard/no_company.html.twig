@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aucune instance — obstack</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0a1628 0%, #185FA5 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 48px 40px;
+            max-width: 520px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 24px 80px rgba(0,0,0,.3);
+        }
+        .icon { font-size: 56px; color: #e2e6ea; margin-bottom: 20px; }
+        h1 { font-size: 22px; font-weight: 700; color: #1a1d23; margin-bottom: 10px; }
+        p { font-size: 14px; color: #6b7280; line-height: 1.7; margin-bottom: 24px; }
+        .user-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: #f0f2f5; border-radius: 20px;
+            padding: 6px 14px; font-size: 13px; color: #374151;
+            margin-bottom: 28px;
+        }
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 12px 24px; border-radius: 8px;
+            font-size: 14px; font-weight: 500; text-decoration: none;
+            transition: all .12s; cursor: pointer; border: none;
+        }
+        .btn-primary { background: #185FA5; color: #fff; }
+        .btn-primary:hover { background: #0f4578; }
+        .btn-secondary {
+            background: #f0f2f5; color: #374151;
+            border: 1px solid #e2e6ea; margin-left: 10px;
+        }
+        .btn-secondary:hover { background: #e2e6ea; }
+        .steps {
+            text-align: left;
+            background: #f8f9fb;
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 28px;
+            font-size: 13px;
+            color: #374151;
+            line-height: 2;
+        }
+        .steps ol { padding-left: 18px; }
+        .steps li { margin-bottom: 4px; }
+        .steps code {
+            background: #e2e6ea;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="icon"><i class="ti ti-building-off"></i></div>
+    <h1>Aucune instance obstack associée</h1>
+
+    <div class="user-badge">
+        <i class="ti ti-user"></i>
+        Connecté en tant que <strong>{{ username }}</strong>
+    </div>
+
+    <p>
+        Votre compte est bien authentifié, mais il n'est associé à aucune entreprise obstack.
+        Vous devez d'abord créer une instance pour votre organisation, ou contacter
+        votre administrateur pour obtenir un accès.
+    </p>
+
+    <div class="steps">
+        <strong>Options disponibles :</strong>
+        <ol>
+            <li>
+                <strong>Créer une nouvelle instance</strong> — Inscrivez votre entreprise
+                sur <code>/register</code> pour obtenir un environnement par défaut opérationnel.
+            </li>
+            <li>
+                <strong>Rejoindre une instance existante</strong> — Demandez à votre superadmin
+                de vous ajouter via <em>Admin → Utilisateurs</em>.
+            </li>
+            <li>
+                <strong>Connexion LDAP</strong> — Si votre entreprise utilise OpenLDAP,
+                connectez-vous avec vos identifiants de domaine via la page de connexion
+                en renseignant l'identifiant de votre entreprise.
+            </li>
+        </ol>
+    </div>
+
+    <div>
+        <a href="{{ path('register_index') }}" class="btn btn-primary">
+            <i class="ti ti-rocket"></i>Créer une instance
+        </a>
+        <a href="{{ path('app_logout') }}" class="btn btn-secondary">
+            <i class="ti ti-logout"></i>Déconnexion
+        </a>
+    </div>
+</div>
+</body>
+</html>

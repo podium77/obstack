@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+{% block title %}Administration globale{% endblock %}
+{% block body %}
+<h1>Administration — Vue globale</h1>
+<p>{{ companies|length }} entreprise(s) enregistrée(s)</p>
+<table>
+    <thead><tr><th>Nom</th><th>Slug</th><th>Active</th></tr></thead>
+    <tbody>
+    {% for company in companies %}
+        <tr>
+            <td>{{ company.name }}</td>
+            <td>{{ company.slug }}</td>
+            <td>{{ company.active ? 'Oui' : 'Non' }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

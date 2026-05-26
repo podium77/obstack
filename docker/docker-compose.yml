@@ -1,0 +1,167 @@
+version: '3.9'
+
+services:
+
+  # ─── Application Symfony ───────────────────────────────────────────
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: obstack-app
+    restart: unless-stopped
+    environment:
+      APP_ENV: prod
+      DATABASE_URL: postgresql://obstack:secret@postgres:5432/obstack_v2
+      REDIS_URL: redis://redis:6379
+      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+      APP_BASE_URL: http://localhost:8080
+    volumes:
+      - ../:/var/www/obstack:cached
+      - ssh_keys:/var/lib/obstack/.ssh
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [obs-net]
+
+  # ─── Nginx ─────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: obstack-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ../:/var/www/obstack:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on: [app]
+    networks: [obs-net]
+
+  # ─── Messenger workers ─────────────────────────────────────────────
+  worker-async:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: obstack-worker-async
+    restart: unless-stopped
+    command: php bin/console messenger:consume async --time-limit=3600 --env=prod
+    environment:
+      DATABASE_URL: postgresql://obstack:secret@postgres:5432/obstack_v2
+      REDIS_URL: redis://redis:6379
+      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+    depends_on: [postgres, redis]
+    networks: [obs-net]
+
+  worker-remediation:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: obstack-worker-remediation
+    restart: unless-stopped
+    command: php bin/console messenger:consume remediation --time-limit=3600 --env=prod
+    environment:
+      DATABASE_URL: postgresql://obstack:secret@postgres:5432/obstack_v2
+      REDIS_URL: redis://redis:6379
+      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+    depends_on: [postgres, redis]
+    networks: [obs-net]
+
+  worker-metrics:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: obstack-worker-metrics
+    restart: unless-stopped
+    command: php bin/console messenger:consume metrics --time-limit=3600 --env=prod
+    environment:
+      DATABASE_URL: postgresql://obstack:secret@postgres:5432/obstack_v2
+      REDIS_URL: redis://redis:6379
+      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+    depends_on: [postgres, redis]
+    networks: [obs-net]
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: obstack-scheduler
+    restart: unless-stopped
+    command: php bin/console scheduler:run --env=prod
+    environment:
+      DATABASE_URL: postgresql://obstack:secret@postgres:5432/obstack_v2
+      REDIS_URL: redis://redis:6379
+      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+    depends_on: [postgres, redis]
+    networks: [obs-net]
+
+  # ─── PostgreSQL ─────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: obstack-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: obstack_v2
+      POSTGRES_USER: obstack
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obstack -d obstack_v2"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [obs-net]
+
+  # ─── Redis ──────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: obstack-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks: [obs-net]
+
+  # ─── Neo4j (Knowledge Graph — optionnel) ────────────────────────────
+  neo4j:
+    image: neo4j:5-community
+    container_name: obstack-neo4j
+    restart: unless-stopped
+    profiles: [kg]   # Démarré uniquement avec: docker compose --profile kg up
+    environment:
+      NEO4J_AUTH: neo4j/obstack
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    networks: [obs-net]
+
+  # ─── PyRCA API (optionnel) ───────────────────────────────────────────
+  pyrca:
+    image: python:3.11-slim
+    container_name: obstack-pyrca
+    restart: unless-stopped
+    profiles: [rca]   # Démarré uniquement avec: docker compose --profile rca up
+    command: >
+      bash -c "pip install pyrca flask gunicorn &&
+               gunicorn -w 2 -b 0.0.0.0:5000 pyrca_api:app"
+    ports:
+      - "5000:5000"
+    networks: [obs-net]
+
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
+  ssh_keys:
+
+networks:
+  obs-net:
+    driver: bridge

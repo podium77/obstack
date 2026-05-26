@@ -1,0 +1,46 @@
+framework:
+    messenger:
+        failure_transport: failed
+
+        transports:
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    stream: messages
+                    group: obstack
+                retry_strategy:
+                    max_retries: 3
+                    delay: 1000
+                    multiplier: 2
+
+            remediation:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    stream: remediation
+                    group: obstack
+
+            metrics:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    stream: metrics
+                    group: obstack
+
+            kubernetes:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    stream: kubernetes
+                    group: obstack
+
+            failed:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    stream: failed
+                    group: obstack
+
+        routing:
+            App\Message\CollectMetricsMessage:        metrics
+            App\Message\CheckAlertsMessage:           metrics
+            App\Message\RemediationJobMessage:        remediation
+            App\Message\DatabaseBackupMessage:        remediation
+            App\Message\SendAlertNotificationMessage: async
+            App\Message\SyncKubernetesMessage:        kubernetes

@@ -1,0 +1,74 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Analyses RCA{% endblock %}
+{% block page_title %}Analyses RCA{% endblock %}
+{% block page_subtitle_content %}Liste des analyses de cause racine{% endblock %}
+
+{% block content %}
+{% if not rcaEnabled %}
+<div style="background:var(--color-warn-light);border-radius:var(--radius-md);padding:20px;margin-bottom:20px">
+    <p style="margin:0;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-alert-triangle"></i>
+        <strong>RCA est désactivé</strong> pour votre entreprise. Activez-le dans les <a href="{{ path('app_rca_settings') }}">paramètres RCA</a>.
+    </p>
+</div>
+{% endif %}
+
+<div style="margin-bottom:20px;display:flex;gap:12px">
+    <a href="{{ path('alert_index') }}" class="btn btn-secondary">
+        <i class="ti ti-list"></i> Voir les alertes
+    </a>
+    {% if rcaEnabled %}
+    <a href="{{ path('app_rca_settings') }}" class="btn btn-secondary">
+        <i class="ti ti-settings"></i> Paramètres RCA
+    </a>
+    {% endif %}
+</div>
+
+<div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Alerte associée</th>
+                <th>Application</th>
+                <th>Environnement</th>
+                <th>Date de l'analyse</th>
+                <th>Cause probable</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for analysis in analyses %}
+            <tr>
+                <td>#{{ analysis.id }}</td>
+                <td>
+                    <a href="{{ path('app_alert_show', {id: analysis.alert.id}) }}">{{ analysis.alert.title }}</a>
+                </td>
+                <td>{{ analysis.alert.application.name }}</td>
+                <td>{{ analysis.alert.application.environment.name }}</td>
+                <td>{{ analysis.createdAt|date('Y-m-d H:i') }}</td>
+                <td>{{ analysis.probableCause|default('—') }}</td>
+                <td>
+                    <span class="badge {% if analysis.status == 'completed' %}badge-success{% elseif analysis.status == 'pending' %}badge-warning{% else %}badge-secondary{% endif %}">
+                        {{ analysis.status|capitalize }}
+                    </span>
+                </td>
+                <td>
+                    <a href="{{ path('app_rca_report', {id: analysis.id}) }}" class="btn btn-sm btn-primary">
+                        <i class="ti ti-file-report"></i> Rapport
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" style="text-align:center;color:var(--color-text-secondary);padding:40px">
+                    Aucune analyse RCA trouvée.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Administration globale{% endblock %}
+{% block page_title %}Vue Superadmin{% endblock %}
+
+{% block content %}
+    <div style="max-width:820px">
+        <p>Connecté en tant que : <strong>{{ user.userIdentifier }}</strong></p>
+
+        {% if companyCount == 0 %}
+        <div style="margin:20px 0;padding:18px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;color:#1e40af;">
+            <strong>Aucune entreprise obstack n'est encore enregistrée.</strong>
+            Créez une nouvelle entreprise pour démarrer la supervision.
+            <div style="margin-top:10px">
+                <a href="{{ path('register_index') }}" class="btn btn-primary" style="padding:10px 16px;">
+                    <i class="ti ti-rocket"></i>Créer une entreprise
+                </a>
+            </div>
+        </div>
+        {% elseif showRegisterNotice and environments|length == 0 and apps|length == 0 %}
+        <div style="margin:20px 0;padding:18px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;color:#166534;">
+            <strong>Votre compte superadmin n'est rattaché à aucune entreprise active.</strong>
+            Vous pouvez créer une nouvelle entreprise, ou gérer les entreprises existantes depuis l'administration globale.
+            <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+                <a href="{{ path('register_index') }}" class="btn btn-secondary" style="padding:10px 16px;">
+                    <i class="ti ti-rocket"></i>Créer une entreprise
+                </a>
+                <a href="{{ path('admin_index') }}" class="btn btn-primary" style="padding:10px 16px;">
+                    <i class="ti ti-settings"></i>Aller à l'administration
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <div style="margin-top:24px">
+            <p>Bienvenue dans l’administration globale. Cette vue vous permettra bientôt de piloter les entreprises, environnements et utilisateurs depuis un seul endroit.</p>
+        </div>
+    </div>
+{% endblock %}

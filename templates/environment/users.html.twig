@@ -1,0 +1,158 @@
+{% extends 'base.html.twig' %}
+{% block title %}Utilisateurs — {{ env.name }}{% endblock %}
+{% block page_title %}Utilisateurs de {{ env.name }}{% endblock %}
+{% block page_subtitle_content %}Gestion des accès et des rôles{% endblock %}
+
+{% block content %}
+
+<div class="grid-2-1">
+<div>
+
+{# Table des utilisateurs #}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-users-group"></i>Utilisateurs avec accès</div>
+    </div>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr><th>Utilisateur</th><th>Type</th><th>Rôle</th><th>Accordé le</th><th>Accordé par</th><th></th></tr>
+            </thead>
+            <tbody>
+            {% for eu in users %}
+            {% if eu.isActive %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar">{{ eu.user.initials }}</div>
+                        <div>
+                            <div style="font-weight:500">{{ eu.user.displayName }}</div>
+                            <div class="text-muted text-sm">{{ eu.user.username }}
+                                {% if eu.user.email %} · {{ eu.user.email }}{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    {% if eu.user.isSuperAdmin() %}
+                        <span class="severity-badge severity-critical" style="font-size:10px"><i class="ti ti-crown"></i>Superadmin</span>
+                    {% elseif eu.user.isLdap() %}
+                        <span class="severity-badge severity-info" style="font-size:10px"><i class="ti ti-server-2"></i>LDAP</span>
+                    {% else %}
+                        <span class="severity-badge severity-warning" style="font-size:10px"><i class="ti ti-user"></i>Local</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <select onchange="updateRole({{ eu.user.id }}, this.value)"
+                            {{ eu.user.isSuperAdmin() ? 'disabled' : '' }}
+                            style="padding:4px 8px;border:1px solid var(--color-border);border-radius:5px;font-size:12px">
+                        {% for role in roles %}
+                        <option value="{{ role.value }}" {{ eu.role == role ? 'selected' }}>{{ role.getLabel() }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td class="text-muted text-sm">{{ eu.grantedAt|date('d/m/Y') }}</td>
+                <td class="text-sm">{{ eu.grantedBy ? eu.grantedBy.displayName : '—' }}</td>
+                <td>
+                    {% if not eu.user.isSuperAdmin() %}
+                    <button onclick="removeUser({{ eu.user.id }})" class="btn btn-icon btn-danger" title="Retirer l'accès">
+                        <i class="ti ti-user-minus" style="font-size:14px"></i>
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</div>
+
+{# Panneau droite: ajouter un utilisateur #}
+<div style="display:flex;flex-direction:column;gap:16px">
+
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-user-plus"></i>Ajouter un utilisateur</div></div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Utilisateur de l'entreprise</label>
+                <select id="user-select" style="width:100%;padding:9px 12px;border:1.5px solid var(--color-border);border-radius:7px;font-size:13.5px">
+                    <option value="">— Sélectionner —</option>
+                    {% for companyUser in allCompanyUsers %}
+                    {% if not companyUser.isSuperAdmin() %}
+                    <option value="{{ companyUser.id }}">
+                        {{ companyUser.displayName }} ({{ companyUser.isLdap ? 'LDAP' : 'Local' }})
+                    </option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Rôle</label>
+                <select id="role-select" style="width:100%;padding:9px 12px;border:1.5px solid var(--color-border);border-radius:7px;font-size:13.5px">
+                    {% for role in roles %}
+                    <option value="{{ role.value }}">{{ role.getLabel() }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button onclick="addUser()" class="btn btn-primary" style="width:100%">
+                <i class="ti ti-user-plus"></i>Ajouter à l'environnement
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-info-circle"></i>Règles d'accès</div></div>
+        <div class="card-body" style="font-size:12.5px;line-height:1.8;color:var(--color-text-secondary)">
+            <p style="margin-bottom:8px"><strong>Superadmin</strong> — Accès total à tous les environnements. Non configurable.</p>
+            <p style="margin-bottom:8px"><strong>Utilisateurs LDAP</strong> — Illimités. Chaque utilisateur peut avoir des rôles différents sur différents environnements.</p>
+            <p style="margin-bottom:8px"><strong>Utilisateurs locaux</strong> — Maximum <strong>1 par environnement</strong> (hors superadmin). Utilisez LDAP pour plusieurs comptes.</p>
+            <hr style="margin:10px 0;border-color:var(--color-border)">
+            <p><strong>Lecteur</strong> — Consultation uniquement.</p>
+            <p><strong>Opérateur</strong> — Peut déclencher des remédiations.</p>
+            <p><strong>Admin</strong> — Administre l'environnement (utilisateurs, tokens, config).</p>
+            <p><strong>Propriétaire</strong> — Délégation du superadmin.</p>
+        </div>
+    </div>
+
+</div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+async function addUser() {
+    const userId = document.getElementById('user-select').value;
+    const role   = document.getElementById('role-select').value;
+
+    if (!userId) { alert('Sélectionnez un utilisateur.'); return; }
+
+    const res  = await fetch('{{ path("env_user_add", {id: env.id}) }}', {
+        method: 'POST',
+        body: new URLSearchParams({user_id: userId, role}),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'}
+    });
+    const data = await res.json();
+
+    if (data.success) { alert(data.message); location.reload(); }
+    else              { alert('Erreur: ' + data.error); }
+}
+
+async function removeUser(userId) {
+    if (!confirm('Retirer cet utilisateur de l\'environnement ?')) return;
+    const res  = await fetch('{{ path("env_user_remove", {envId: env.id, userId: 0}) }}'.replace('/0', '/' + userId), {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}
+    });
+    if ((await res.json()).success) location.reload();
+}
+
+async function updateRole(userId, newRole) {
+    await fetch('{{ path("env_user_add", {id: env.id}) }}', {
+        method: 'POST',
+        body: new URLSearchParams({user_id: userId, role: newRole}),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+    });
+}
+{% endblock %}

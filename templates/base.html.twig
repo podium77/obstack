@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}obstack{% endblock %} — {{ obs_company ? obs_company.name : 'obstack' }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+    {% block stylesheets %}
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --color-brand:           {{ obs_brand_color }};
+            --color-brand-light:     {{ obs_brand_color ~ '22' }};
+            --color-brand-dark:      #0f4578;
+            --color-bg-primary:      #ffffff;
+            --color-bg-secondary:    #f8f9fb;
+            --color-bg-tertiary:     #f0f2f5;
+            --color-border:          #e2e6ea;
+            --color-border-tertiary: #f0f2f5;
+            --color-text-primary:    #1a1d23;
+            --color-text-secondary:  #6b7280;
+            --color-text-tertiary:   #9ca3af;
+            --color-ok:              #639922;
+            --color-ok-light:        #ecfccb;
+            --color-warn:            #EF9F27;
+            --color-warn-light:      #fef3c7;
+            --color-critical:        #E24B4A;
+            --color-critical-light:  #fee2e2;
+            --color-info:            #3b82f6;
+            --color-info-light:      #dbeafe;
+            --sidebar-width:         236px;
+            --topbar-height:         54px;
+            --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+            --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+            --font: system-ui, -apple-system, sans-serif;
+        }
+        body { font-family: var(--font); font-size: 13.5px; color: var(--color-text-primary); background: var(--color-bg-tertiary); line-height: 1.5; }
+        .layout { display: flex; min-height: 100vh; }
+
+        /* SIDEBAR */
+        .sidebar { width: var(--sidebar-width); background: var(--color-bg-primary); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; overflow-y: auto; }
+        .sidebar-header { padding: 14px 16px; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; gap: 10px; }
+        .logo-icon { width: 32px; height: 32px; background: var(--color-brand); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; flex-shrink: 0; }
+        .logo-name { font-size: 13.5px; font-weight: 700; color: var(--color-text-primary); }
+        .logo-company { font-size: 11px; color: var(--color-text-tertiary); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Env selector in sidebar */
+        .env-selector { padding: 10px 12px; border-bottom: 1px solid var(--color-border); }
+        .env-current { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); border-radius: var(--radius-md); cursor: pointer; font-size: 12.5px; }
+        .env-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .env-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .env-badge { font-size: 9px; padding: 1px 5px; border-radius: 6px; font-weight: 600; }
+
+        .sidebar-section { padding: 6px 0; }
+        .sidebar-label { font-size: 10px; font-weight: 600; letter-spacing: .7px; text-transform: uppercase; color: var(--color-text-tertiary); padding: 6px 16px 2px; }
+        .nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; color: var(--color-text-secondary); text-decoration: none; font-size: 13px; border-left: 2px solid transparent; transition: all .12s; }
+        .nav-item:hover { background: var(--color-bg-secondary); color: var(--color-text-primary); }
+        .nav-item.active { background: var(--color-brand-light); color: var(--color-brand); border-left-color: var(--color-brand); font-weight: 500; }
+        .nav-item i { font-size: 17px; }
+        .nav-badge { margin-left: auto; background: var(--color-critical-light); color: var(--color-critical); font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 20px; }
+
+        /* MAIN */
+        .main { flex: 1; margin-left: var(--sidebar-width); display: flex; flex-direction: column; min-height: 100vh; }
+        .topbar { height: var(--topbar-height); background: var(--color-bg-primary); border-bottom: 1px solid var(--color-border); display: flex; align-items: center; padding: 0 24px; gap: 12px; position: sticky; top: 0; z-index: 50; }
+        .topbar-title { font-size: 16px; font-weight: 600; flex: 1; }
+        .topbar-actions { display: flex; align-items: center; gap: 8px; }
+        .user-chip { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border: 1px solid var(--color-border); border-radius: 20px; cursor: pointer; font-size: 12.5px; text-decoration: none; color: var(--color-text-primary); }
+        .avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--color-brand-light); color: var(--color-brand); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+        .content { flex: 1; padding: 24px; }
+
+        /* CARDS */
+        .card { background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
+        .card-header { padding: 13px 18px; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; gap: 8px; }
+        .card-header-title { font-size: 13.5px; font-weight: 600; flex: 1; display: flex; align-items: center; gap: 6px; }
+        .card-body { padding: 16px 18px; }
+
+        /* METRICS */
+        .metric-card { background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px 18px; }
+        .metric-label { font-size: 11.5px; color: var(--color-text-secondary); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+        .metric-value { font-size: 26px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+        .metric-sub { font-size: 11.5px; color: var(--color-text-tertiary); }
+        .metric-card.ok .metric-value { color: var(--color-ok); }
+        .metric-card.warn .metric-value { color: var(--color-warn); }
+        .metric-card.critical .metric-value, .metric-card.error .metric-value { color: var(--color-critical); }
+
+        /* PROGRESS */
+        .progress { height: 5px; background: var(--color-bg-tertiary); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+        .progress-fill.ok { background: var(--color-ok); }
+        .progress-fill.warn { background: var(--color-warn); }
+        .progress-fill.critical { background: var(--color-critical); }
+
+        /* BADGES */
+        .severity-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+        .severity-ok { background: var(--color-ok-light); color: var(--color-ok); }
+        .severity-warning { background: var(--color-warn-light); color: var(--color-warn); }
+        .severity-critical, .severity-error { background: var(--color-critical-light); color: var(--color-critical); }
+        .severity-info { background: var(--color-info-light); color: var(--color-info); }
+
+        /* BUTTONS */
+        .btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .12s; text-decoration: none; }
+        .btn-primary { background: var(--color-brand); color: #fff; }
+        .btn-primary:hover { filter: brightness(.9); }
+        .btn-secondary { background: var(--color-bg-secondary); color: var(--color-text-primary); border: 1px solid var(--color-border); }
+        .btn-secondary:hover { background: var(--color-bg-tertiary); }
+        .btn-danger { background: var(--color-critical); color: #fff; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn-icon { padding: 6px; }
+
+        /* TABLE */
+        .table-wrapper { overflow-x: auto; }
+        table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.data-table th { padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--color-text-tertiary); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+        table.data-table td { padding: 11px 14px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+        table.data-table tr:last-child td { border-bottom: none; }
+        table.data-table tr:hover td { background: var(--color-bg-secondary); }
+
+        /* FORMS */
+        .form-group { margin-bottom: 16px; }
+        label.form-label { display: block; font-size: 12.5px; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 5px; }
+        input[type="text"], input[type="email"], input[type="number"], input[type="password"],
+        input[type="url"], select, textarea {
+            width: 100%; padding: 8px 12px; border: 1.5px solid var(--color-border); border-radius: var(--radius-sm);
+            font-size: 13.5px; color: var(--color-text-primary); background: var(--color-bg-primary); transition: border-color .12s;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--color-brand); box-shadow: 0 0 0 3px var(--color-brand-light); }
+        .form-hint { font-size: 11.5px; color: var(--color-text-tertiary); margin-top: 3px; }
+
+        /* GRIDS */
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+
+        /* OS BADGES */
+        .os-badge { font-size: 10.5px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+        .badge-debian { background: #d40000; color: #fff; }
+        .badge-ubuntu { background: #E95420; color: #fff; }
+        .badge-redhat { background: #CC0000; color: #fff; }
+        .badge-centos { background: #932279; color: #fff; }
+        .badge-rockylinux { background: #10B981; color: #fff; }
+
+        /* ICON STATUS */
+        .icon-status { width: 30px; height: 30px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .icon-status.ok { background: var(--color-ok-light); color: var(--color-ok); }
+        .icon-status.warn { background: var(--color-warn-light); color: var(--color-warn); }
+        .icon-status.critical { background: var(--color-critical-light); color: var(--color-critical); }
+
+        /* FLASH */
+        .flash-container { position: fixed; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+        .flash { padding: 12px 16px; border-radius: var(--radius-md); font-size: 13px; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow-md); max-width: 360px; }
+        .flash.success { background: var(--color-ok-light); color: var(--color-ok); border: 1px solid var(--color-ok); }
+        .flash.error { background: var(--color-critical-light); color: var(--color-critical); border: 1px solid var(--color-critical); }
+
+        /* UTILS */
+        .text-muted { color: var(--color-text-tertiary); }
+        .text-sm { font-size: 12px; }
+        .font-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+        .mt-4 { margin-top: 16px; } .mb-4 { margin-bottom: 16px; }
+        .flex { display: flex; } .items-center { align-items: center; } .gap-2 { gap: 8px; }
+        @media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 900px)  { .sidebar { transform: translateX(-100%); } .main { margin-left: 0; } }
+    </style>
+    {% endblock %}
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo-icon"><i class="ti ti-radar-2"></i></div>
+        <div>
+            <div class="logo-name">obstack</div>
+            <div class="logo-company">{{ obs_company ? obs_company.name : 'obstack' }}</div>
+        </div>
+    </div>
+
+    {# Sélecteur d'environnement courant #}
+    {% set currentEnv = app.request.attributes.get('_current_env') %}
+    <div class="env-selector">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--color-text-tertiary);margin-bottom:5px">
+            Environnement
+        </div>
+        <a href="{{ path('env_index') }}" class="env-current" style="text-decoration:none;color:var(--color-text-primary)">
+            <span class="env-dot" style="background:#185FA5"></span>
+            <span class="env-name">Tous les environnements</span>
+            <i class="ti ti-selector" style="font-size:13px;color:var(--color-text-tertiary)"></i>
+        </a>
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-label">Vue globale</div>
+        <a href="{{ path('dashboard') }}" class="nav-item {{ app.request.attributes.get('_route') == 'dashboard' ? 'active' }}">
+            <i class="ti ti-layout-dashboard"></i>Tableau de bord
+        </a>
+        <a href="{{ path('env_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'env_' ? 'active' }}">
+            <i class="ti ti-layout-grid"></i>Environnements
+        </a>
+        <a href="{{ path('app_application_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'app_application' ? 'active' }}">
+            <i class="ti ti-stack-2"></i>Applications
+        </a>
+        <a href="{{ path('alert_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'alert_' ? 'active' }}">
+            <i class="ti ti-bell"></i>Alertes
+        </a>
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-label">Infrastructure</div>
+        <a href="{{ path('servers_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'servers_' ? 'active' }}"><i class="ti ti-server-2"></i>Serveurs</a>
+        <a href="{{ path('k8s_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'k8s_' ? 'active' }}"><i class="ti ti-hexagon"></i>Kubernetes</a>
+        <a href="{{ path('network_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'network_' ? 'active' }}"><i class="ti ti-topology-star-3"></i>Réseau</a>
+    </div>
+
+    {% set monitoringLinks = monitoring_module_links() %}
+    <div class="sidebar-section">
+        <div class="sidebar-label">Monitoring</div>
+        {% if monitoringLinks|length > 0 %}
+            {% for link in monitoringLinks %}
+                <a href="{{ path(link.route, link.routeParams) }}"
+                   class="nav-item {{ app.request.attributes.get('_route') starts with 'instance_modules_' ? 'active' }}">
+                    <i class="ti ti-{{ link.icon }}"></i>
+                    {{ link.label }}
+                </a>
+            {% endfor %}
+        {% else %}
+            <span style="display:block;padding:10px 16px;font-size:11px;color:var(--color-text-tertiary);">Aucun module de monitoring actif</span>
+        {% endif %}
+    </div>
+
+    <div class="sidebar-section">
+        <div class="sidebar-label">Remédiation & IA</div>
+        <a href="{{ path('remediation_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'remediation_' ? 'active' }}">
+            <i class="ti ti-robot"></i>Auto-remédiation
+        </a>
+        {% if obs_company and obs_company.rcaEnabled %}
+        <a href="{{ path('app_rca_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'rca_' ? 'active' }}"><i class="ti ti-brain"></i>Analyse RCA</a>
+        {% endif %}
+        {% if obs_company and obs_company.kgEnabled %}
+        <a href="{{ path('knowledge_graph_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'knowledge_graph_' ? 'active' }}"><i class="ti ti-topology-complex"></i>Knowledge Graph</a>
+        {% endif %}
+    </div>
+
+    {% if is_granted('ROLE_SUPERADMIN') %}
+    <div class="sidebar-section">
+        <div class="sidebar-label">Administration</div>
+        <a href="{{ path('admin_index') }}" class="nav-item {{ app.request.attributes.get('_route') starts with 'admin_' ? 'active' }}">
+            <i class="ti ti-settings-2"></i>Paramètres
+        </a>
+        <a href="{{ path('admin_users') }}" class="nav-item">
+            <i class="ti ti-users-group"></i>Utilisateurs
+        </a>
+    </div>
+    {% endif %}
+
+    <div style="margin-top:auto;padding:12px 16px;border-top:1px solid var(--color-border)">
+        {% if obs_user %}
+        <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:6px">
+            {{ obs_user.isSuperAdmin ? '👑 Superadmin' : (obs_user.isLdap ? '🔗 LDAP' : '🔑 Local') }}
+        </div>
+        {% endif %}
+        <a href="{{ path('app_logout') }}" class="nav-item" style="padding:6px 0;color:var(--color-critical)">
+            <i class="ti ti-logout"></i>Déconnexion
+        </a>
+    </div>
+</aside>
+
+<div class="main">
+    <header class="topbar">
+        <div style="flex:1">
+            <div class="topbar-title">{% block page_title %}obstack{% endblock %}</div>
+            <div style="font-size:11.5px;color:var(--color-text-tertiary)">
+                {% block page_subtitle %}{% block page_subtitle_content %}{% endblock %}{% endblock %}
+            </div>
+        </div>
+        <div class="topbar-actions">
+            {% block topbar_actions %}{% endblock %}
+            <div class="user-chip">
+                <div class="avatar">{{ obs_user ? obs_user.initials : 'U' }}</div>
+                <span>{{ obs_user ? obs_user.displayName : 'Anonyme' }}</span>
+                {% if is_granted('ROLE_SUPERADMIN') %}
+                <span class="severity-badge severity-critical" style="font-size:9px">SA</span>
+                {% elseif is_granted('ROLE_ADMIN') %}
+                <span class="severity-badge severity-info" style="font-size:9px">Admin</span>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="content">
+        <div class="flash-container">
+            {% for label, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="flash {{ label }}">
+                        <i class="ti ti-{{ label == 'success' ? 'circle-check' : 'alert-circle' }}"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+
+        {% block content %}{% endblock %}
+    </main>
+</div>
+</div>
+
+<script>
+setTimeout(() => document.querySelectorAll('.flash').forEach(el => {
+    el.style.opacity='0'; el.style.transition='opacity .3s';
+    setTimeout(() => el.remove(), 300);
+}), 5000);
+{% block javascript %}{% endblock %}
+</script>
+</body>
+</html>

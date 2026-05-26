@@ -1,0 +1,259 @@
+{% extends 'base.html.twig' %}
+{% block title %}Paramètres{% endblock %}
+{% block page_title %}Paramètres de l'entreprise{% endblock %}
+{% block page_subtitle_content %}{{ company.name }} · Clé de licence: <code>{{ company.licenseKey|slice(0,16) }}…</code>{% endblock %}
+
+{% block content %}
+<form method="post" style="max-width:760px">
+
+{# Tabs #}
+<div style="display:flex;border-bottom:1px solid var(--color-border);background:var(--color-bg-primary);border-radius:var(--radius-md) var(--radius-md) 0 0;overflow:hidden">
+    {% for tabId, label in {'general':'Général','ldap':'OpenLDAP','rca':'PyRCA','kg':'Knowledge Graph'} %}
+    <button type="button" onclick="showTab('{{ tabId }}')" id="tab-btn-{{ tabId }}"
+            style="padding:12px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;
+                   color:var(--color-text-secondary);border-bottom:2px solid transparent">
+        {{ label }}
+    </button>
+    {% endfor %}
+</div>
+
+<div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-top:none;
+            border-radius:0 0 var(--radius-md) var(--radius-md);padding:28px">
+
+    {# ===== GÉNÉRAL ===== #}
+    <div id="panel-general">
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Nom de l'entreprise</label>
+                <input type="text" value="{{ company.name }}" disabled style="background:#f8f9fb">
+                <div class="form-hint">Non modifiable. Contactez le support pour un changement.</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Identifiant (slug)</label>
+                <input type="text" value="{{ company.slug }}" disabled style="background:#f8f9fb;font-family:monospace">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea name="description" rows="2">{{ company.description }}</textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Couleur de marque</label>
+            <div style="display:flex;gap:10px;align-items:center">
+                <input type="color" name="brand_color" value="{{ company.brandColor }}"
+                       style="width:50px;height:38px;padding:2px;border-radius:6px;border:1px solid var(--color-border)"
+                       oninput="document.getElementById('color-prev').style.background=this.value">
+                <div id="color-prev" style="flex:1;height:38px;border-radius:6px;background:{{ company.brandColor }}"></div>
+            </div>
+            <div class="form-hint">Personnalise l'accent de couleur dans toute l'interface.</div>
+        </div>
+
+        <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:14px;font-size:13px">
+            <div style="font-weight:600;margin-bottom:8px">Limites de votre instance</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12.5px;color:var(--color-text-secondary)">
+                <div>Environnements max: <strong>{{ company.maxEnvironments }}</strong></div>
+                <div>Agents/env max: <strong>{{ company.maxAgentsPerEnv }}</strong></div>
+                <div>Clé de licence: <code style="font-size:11px">{{ company.licenseKey|slice(0,20) }}…</code></div>
+                <div>Créé le: {{ company.createdAt|date('d/m/Y') }}</div>
+            </div>
+        </div>
+    </div>
+
+    {# ===== LDAP ===== #}
+    <div id="panel-ldap" style="display:none">
+        <div style="background:var(--color-info-light);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:#1d4ed8">
+            <i class="ti ti-info-circle"></i>
+            La configuration LDAP s'applique à <strong>toute l'entreprise</strong>.
+            Sans LDAP, maximum 1 compte local par environnement.
+        </div>
+
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Hôte LDAP</label>
+                <input type="text" name="ldap_host" value="{{ company.ldapHost }}" placeholder="openldap.company.local">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Port</label>
+                <input type="number" name="ldap_port" value="{{ company.ldapPort ?? 389 }}" min="1" max="65535">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">DN de base</label>
+            <input type="text" name="ldap_base_dn" value="{{ company.ldapBaseDn }}" class="font-mono"
+                   placeholder="dc=company,dc=local">
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">DN compte de lecture</label>
+                <input type="text" name="ldap_bind_dn" value="{{ company.ldapBindDn }}" class="font-mono"
+                       placeholder="cn=ldap-reader,dc=company,dc=local">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Mot de passe compte lecture</label>
+                <input type="password" name="ldap_bind_password" placeholder="••••••••">
+                <div class="form-hint">Laissez vide pour conserver le mot de passe actuel.</div>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Base DN utilisateurs</label>
+                <input type="text" name="ldap_user_base_dn" value="{{ company.ldapUserBaseDn }}" class="font-mono"
+                       placeholder="ou=users,dc=company,dc=local">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Base DN groupes</label>
+                <input type="text" name="ldap_group_base_dn" value="{{ company.ldapGroupBaseDn }}" class="font-mono"
+                       placeholder="ou=groups,dc=company,dc=local">
+            </div>
+        </div>
+
+        <button type="button" onclick="testLdap()" class="btn btn-secondary">
+            <i class="ti ti-plug"></i>Tester la connexion LDAP
+        </button>
+        <div id="ldap-test-result" style="margin-top:10px;font-size:13px"></div>
+    </div>
+
+    {# ===== PYRCA ===== #}
+    <div id="panel-rca" style="display:none">
+        <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:14px;margin-bottom:16px;font-size:12.5px;color:var(--color-text-secondary)">
+            <strong>PyRCA</strong> est une bibliothèque Python open-source (Salesforce) pour l'analyse de cause racine
+            dans les systèmes distribués. Déployez l'API PyRCA séparément et connectez-la ici.
+            <a href="https://github.com/salesforce/PyRCA" target="_blank" style="color:var(--color-brand)">Documentation PyRCA ↗</a>
+        </div>
+
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:14px">
+                <input type="checkbox" name="rca_enabled" {{ company.rcaEnabled ? 'checked' }}
+                       style="width:16px;height:16px;accent-color:var(--color-brand)">
+                <span style="font-size:13.5px;font-weight:500">Activer le module PyRCA</span>
+            </label>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">URL de l'API PyRCA</label>
+                <input type="url" name="rca_api_url" value="{{ company.rcaConfig.api_url ?? '' }}"
+                       placeholder="http://pyrca-api:5000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Clé API (optionnel)</label>
+                <input type="text" name="rca_api_key" value="{{ company.rcaConfig.api_key ?? '' }}"
+                       placeholder="sk-...">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Modèle d'analyse</label>
+            <select name="rca_model">
+                {% for model, label in {
+                    'bayesian': 'Réseau bayésien',
+                    'causal': 'Analyse causale (PC)',
+                    'epsilon_diag': 'Epsilon-Diagnosis',
+                    'random_walk': 'Random Walk',
+                    'micro_scope': 'MicroScope'
+                } %}
+                <option value="{{ model }}" {{ (company.rcaConfig.model ?? 'bayesian') == model ? 'selected' }}>
+                    {{ label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" name="rca_auto_analyze"
+                       {{ company.rcaConfig.auto_analyze ?? false ? 'checked' }}
+                       style="width:16px;height:16px;accent-color:var(--color-brand)">
+                <div>
+                    <span style="font-size:13px;font-weight:500">Analyse automatique sur alerte critique</span>
+                    <div class="form-hint">Lance une analyse PyRCA automatiquement lors d'une alerte de sévérité "critique".</div>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    {# ===== KNOWLEDGE GRAPH ===== #}
+    <div id="panel-kg" style="display:none">
+        <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:14px;margin-bottom:16px;font-size:12.5px;color:var(--color-text-secondary)">
+            Le <strong>Knowledge Graph</strong> cartographie les dépendances entre vos services, applications et
+            noeuds Kubernetes dans Neo4j ou ArangoDB. Permet d'identifier les points de défaillance uniques (SPOF)
+            et de propager les analyses d'impact.
+        </div>
+
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:14px">
+                <input type="checkbox" name="kg_enabled" {{ company.kgEnabled ? 'checked' }}
+                       style="width:16px;height:16px;accent-color:var(--color-brand)">
+                <span style="font-size:13.5px;font-weight:500">Activer le Knowledge Graph</span>
+            </label>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Backend</label>
+                <select name="kg_backend">
+                    <option value="neo4j"    {{ (company.kgConfig.backend ?? 'neo4j') == 'neo4j'    ? 'selected' }}>Neo4j</option>
+                    <option value="arangodb" {{ (company.kgConfig.backend ?? 'neo4j') == 'arangodb' ? 'selected' }}>ArangoDB</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nom de la base</label>
+                <input type="text" name="kg_database" value="{{ company.kgConfig.database ?? 'obstack' }}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">URI de connexion</label>
+            <input type="url" name="kg_uri" value="{{ company.kgConfig.uri ?? '' }}"
+                   placeholder="http://neo4j:7474">
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Utilisateur</label>
+                <input type="text" name="kg_user" value="{{ company.kgConfig.user ?? 'neo4j' }}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Mot de passe</label>
+                <input type="password" name="kg_password" placeholder="••••••••">
+                <div class="form-hint">Laissez vide pour conserver.</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div style="display:flex;justify-content:flex-end;margin-top:16px">
+    <button type="submit" class="btn btn-primary">
+        <i class="ti ti-check"></i>Enregistrer les paramètres
+    </button>
+</div>
+</form>
+{% endblock %}
+
+{% block javascript %}
+function showTab(id) {
+    ['general','ldap','rca','kg'].forEach(t => {
+        document.getElementById('panel-' + t).style.display = t === id ? 'block' : 'none';
+        const btn = document.getElementById('tab-btn-' + t);
+        btn.style.borderBottomColor = t === id ? 'var(--color-brand)' : 'transparent';
+        btn.style.color = t === id ? 'var(--color-brand)' : 'var(--color-text-secondary)';
+    });
+}
+showTab('general');
+
+// Détecter l'ancre URL pour ouvrir le bon onglet
+const hash = window.location.hash.replace('#', '');
+if (['general','ldap','rca','kg'].includes(hash)) showTab(hash);
+
+async function testLdap() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader"></i>Test en cours…';
+    const res  = await fetch('{{ path("admin_test_ldap") }}', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    });
+    const data = await res.json();
+    const div  = document.getElementById('ldap-test-result');
+    div.innerHTML = `<span style="color:${data.success ? 'var(--color-ok)' : 'var(--color-critical)'}">
+        <i class="ti ti-${data.success ? 'circle-check' : 'circle-x'}"></i> ${data.message}
+    </span>`;
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-plug"></i>Tester la connexion LDAP';
+}
+{% endblock %}

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Créer votre instance obstack</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; min-height: 100vh; padding: 32px 16px; }
+        .page-header { text-align: center; margin-bottom: 32px; }
+        .page-header .logo { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .logo-icon { width: 48px; height: 48px; background: #185FA5; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; }
+        .page-header h1 { font-size: 26px; font-weight: 700; color: #1a1d23; }
+        .page-header p  { color: #6b7280; margin-top: 6px; }
+        .wizard { max-width: 780px; margin: 0 auto; }
+        .step-nav { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid #e2e6ea; background: #fff; border-radius: 12px 12px 0 0; overflow: hidden; }
+        .step-btn { flex: 1; padding: 14px 8px; border: none; background: none; cursor: pointer; font-size: 12.5px; font-weight: 500; color: #6b7280; border-bottom: 3px solid transparent; transition: all .12s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .step-btn i { font-size: 20px; }
+        .step-btn.active { color: #185FA5; border-bottom-color: #185FA5; background: #eff6ff; }
+        .step-btn.done { color: #639922; }
+        .step-panel { display: none; background: #fff; border: 1px solid #e2e6ea; border-top: none; border-radius: 0 0 12px 12px; padding: 28px; }
+        .step-panel.active { display: block; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; font-size: 12.5px; font-weight: 500; color: #374151; margin-bottom: 5px; }
+        label .required { color: #E24B4A; }
+        input[type="text"], input[type="email"], input[type="password"],
+        input[type="url"], input[type="number"], select, textarea {
+            width: 100%; padding: 9px 12px; border: 1.5px solid #e2e6ea; border-radius: 7px;
+            font-size: 13.5px; color: #1a1d23; background: #fafbfc; transition: border-color .12s;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #185FA5; background: #fff; box-shadow: 0 0 0 3px rgba(24,95,165,.1); }
+        .form-hint { font-size: 11.5px; color: #9ca3af; margin-top: 3px; }
+        .error-msg { font-size: 12px; color: #E24B4A; margin-top: 3px; }
+        .section-title { font-size: 14px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid #f0f2f5; }
+        .toggle-section { background: #f8f9fb; border: 1px solid #e2e6ea; border-radius: 8px; padding: 14px; margin-bottom: 16px; }
+        .toggle-header { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .toggle-header input[type="checkbox"] { width: 18px; height: 18px; accent-color: #185FA5; cursor: pointer; }
+        .toggle-body { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e6ea; }
+        .toggle-body.visible { display: block; }
+        .step-actions { display: flex; justify-content: space-between; margin-top: 24px; padding-top: 20px; border-top: 1px solid #f0f2f5; }
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 7px; font-size: 13.5px; font-weight: 500; cursor: pointer; border: none; transition: all .12s; text-decoration: none; }
+        .btn-primary { background: #185FA5; color: #fff; }
+        .btn-primary:hover { background: #0f4578; }
+        .btn-secondary { background: #f0f2f5; color: #374151; }
+        .btn-secondary:hover { background: #e2e6ea; }
+        .btn-success { background: #639922; color: #fff; }
+        .color-preview { width: 36px; height: 36px; border-radius: 6px; border: 2px solid #e2e6ea; cursor: pointer; }
+        .info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; font-size: 12.5px; color: #1e40af; margin-bottom: 16px; }
+        .warn-box { background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 14px; font-size: 12.5px; color: #92400e; margin-bottom: 16px; }
+        .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .summary-item { background: #f8f9fb; border-radius: 7px; padding: 12px; font-size: 13px; }
+        .summary-item strong { display: block; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+    </style>
+</head>
+<body>
+
+<div class="page-header">
+    <div class="logo">
+        <div class="logo-icon"><i class="ti ti-radar-2"></i></div>
+        <div style="text-align:left">
+            <div style="font-size:20px;font-weight:700">obstack</div>
+            <div style="font-size:12px;color:#6b7280">Plateforme d'observabilité multi-stacks</div>
+        </div>
+    </div>
+    <h1>Créer votre instance obstack</h1>
+    <p>Configurez votre plateforme en quelques minutes. Un environnement par défaut opérationnel sera créé automatiquement.</p>
+</div>
+
+{% if errors.global is defined %}
+<div style="max-width:780px;margin:0 auto 16px;background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;color:#b91c1c;font-size:13px">
+    <i class="ti ti-alert-circle"></i> {{ errors.global }}
+</div>
+{% endif %}
+
+<div class="wizard">
+    <div class="step-nav">
+        <button type="button" class="step-btn active" onclick="showStep(1)" id="step-btn-1"><i class="ti ti-building"></i>Entreprise</button>
+        <button type="button" class="step-btn" onclick="showStep(2)" id="step-btn-2"><i class="ti ti-user-shield"></i>Superadmin</button>
+        <button type="button" class="step-btn" onclick="showStep(3)" id="step-btn-3"><i class="ti ti-server-2"></i>LDAP</button>
+        <button type="button" class="step-btn" onclick="showStep(4)" id="step-btn-4"><i class="ti ti-brain"></i>IA & RCA</button>
+        <button type="button" class="step-btn" onclick="showStep(5)" id="step-btn-5"><i class="ti ti-list-check"></i>Récapitulatif</button>
+    </div>
+
+    <form method="post" id="registration-form">
+
+    {# ===== ÉTAPE 1: ENTREPRISE ===== #}
+    <div class="step-panel active" id="step-1">
+        <div class="section-title"><i class="ti ti-building"></i>Informations de l'entreprise</div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Nom de l'entreprise <span class="required">*</span></label>
+                <input type="text" name="company_name" id="company-name"
+                       value="{{ data.company_name ?? '' }}"
+                       placeholder="Acme Corporation" required oninput="checkName(this.value)">
+                {% if errors.company_name is defined %}
+                    <div class="error-msg">{{ errors.company_name }}</div>
+                {% endif %}
+                <div class="form-hint" id="slug-preview">Identifiant URL: <code id="slug-display">—</code></div>
+            </div>
+            <div class="form-group">
+                <label>Couleur de marque</label>
+                <div style="display:flex;gap:10px;align-items:center">
+                    <input type="color" name="brand_color" id="brand-color"
+                           value="{{ data.brand_color ?? '#185FA5' }}"
+                           style="width:50px;height:38px;padding:2px;border-radius:6px;border:1.5px solid #e2e6ea"
+                           oninput="updateColorPreview(this.value)">
+                    <div id="color-preview" style="flex:1;height:38px;border-radius:6px;background:#185FA5;transition:background .2s"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description" rows="2" placeholder="Description courte de l'entreprise...">{{ data.description ?? '' }}</textarea>
+        </div>
+
+        <div class="step-actions">
+            <div></div>
+            <button type="button" class="btn btn-primary" onclick="showStep(2)">
+                Suivant <i class="ti ti-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    {# ===== ÉTAPE 2: SUPERADMIN ===== #}
+    <div class="step-panel" id="step-2">
+        <div class="section-title"><i class="ti ti-user-shield"></i>Compte Superadmin</div>
+        <div class="info-box">
+            <i class="ti ti-info-circle"></i>
+            Le superadmin a accès à <strong>tous les environnements</strong> de l'entreprise et peut créer de nouveaux environnements, ajouter des utilisateurs et administrer toute l'infrastructure.
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Identifiant <span class="required">*</span></label>
+                <input type="text" name="admin_username" value="{{ data.admin_username ?? '' }}" placeholder="admin" required>
+                {% if errors.admin_username is defined %}<div class="error-msg">{{ errors.admin_username }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label>Nom complet</label>
+                <input type="text" name="admin_display_name" value="{{ data.admin_display_name ?? '' }}" placeholder="Jean Dupont">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Email <span class="required">*</span></label>
+                <input type="email" name="admin_email" value="{{ data.admin_email ?? '' }}" placeholder="admin@company.local" required>
+                {% if errors.admin_email is defined %}<div class="error-msg">{{ errors.admin_email }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                <label>Mot de passe <span class="required">*</span></label>
+                <input type="password" name="admin_password" placeholder="••••••••" required minlength="8">
+                {% if errors.admin_password is defined %}<div class="error-msg">{{ errors.admin_password }}</div>{% endif %}
+                <div class="form-hint">Minimum 8 caractères</div>
+            </div>
+        </div>
+
+        <div class="step-actions">
+            <button type="button" class="btn btn-secondary" onclick="showStep(1)"><i class="ti ti-arrow-left"></i> Précédent</button>
+            <button type="button" class="btn btn-primary" onclick="showStep(3)">Suivant <i class="ti ti-arrow-right"></i></button>
+        </div>
+    </div>
+
+    {# ===== ÉTAPE 3: LDAP ===== #}
+    <div class="step-panel" id="step-3">
+        <div class="section-title"><i class="ti ti-server-2"></i>Annuaire OpenLDAP (optionnel)</div>
+        <div class="info-box">
+            <i class="ti ti-info-circle"></i>
+            La connexion LDAP permet à vos utilisateurs de se connecter avec leurs identifiants d'entreprise.
+            <strong>Sans LDAP</strong>, vous pouvez uniquement créer 1 utilisateur local par environnement (hors superadmin).
+        </div>
+
+        <div class="toggle-section">
+            <label class="toggle-header">
+                <input type="checkbox" id="ldap-enabled" onchange="toggleSection('ldap-body', this.checked)">
+                <div>
+                    <div style="font-size:13.5px;font-weight:500">Connecter un annuaire OpenLDAP</div>
+                    <div class="form-hint">Recommandé pour les équipes de plus de 2 personnes</div>
+                </div>
+            </label>
+            <div class="toggle-body" id="ldap-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Hôte LDAP</label>
+                        <input type="text" name="ldap_host" placeholder="openldap.company.local" value="{{ data.ldap_host ?? '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Port</label>
+                        <input type="number" name="ldap_port" value="{{ data.ldap_port ?? 389 }}" min="1" max="65535">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>DN de base</label>
+                    <input type="text" name="ldap_base_dn" placeholder="dc=company,dc=local" value="{{ data.ldap_base_dn ?? '' }}">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>DN compte de lecture</label>
+                        <input type="text" name="ldap_bind_dn" placeholder="cn=ldap-reader,dc=company,dc=local" value="{{ data.ldap_bind_dn ?? '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Mot de passe compte lecture</label>
+                        <input type="password" name="ldap_bind_password" placeholder="••••••••">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Base DN utilisateurs</label>
+                        <input type="text" name="ldap_user_base_dn" placeholder="ou=users,dc=company,dc=local" value="{{ data.ldap_user_base_dn ?? '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Base DN groupes</label>
+                        <input type="text" name="ldap_group_base_dn" placeholder="ou=groups,dc=company,dc=local" value="{{ data.ldap_group_base_dn ?? '' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-actions">
+            <button type="button" class="btn btn-secondary" onclick="showStep(2)"><i class="ti ti-arrow-left"></i> Précédent</button>
+            <button type="button" class="btn btn-primary" onclick="showStep(4)">Suivant <i class="ti ti-arrow-right"></i></button>
+        </div>
+    </div>
+
+    {# ===== ÉTAPE 4: IA & RCA ===== #}
+    <div class="step-panel" id="step-4">
+        <div class="section-title"><i class="ti ti-brain"></i>Modules d'intelligence artificielle</div>
+
+        {# PyRCA #}
+        <div class="toggle-section">
+            <label class="toggle-header">
+                <input type="checkbox" name="rca_enabled" id="rca-enabled" onchange="toggleSection('rca-body', this.checked)">
+                <div>
+                    <div style="font-size:13.5px;font-weight:500">Activer PyRCA — Analyse de Cause Racine</div>
+                    <div class="form-hint">Bibliothèque Python pour identifier la cause racine des incidents</div>
+                </div>
+            </label>
+            <div class="toggle-body" id="rca-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Backend</label>
+                        <select name="rca_backend">
+                            <option value="pyrca">PyRCA (API locale)</option>
+                            <option value="custom">API personnalisée</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Modèle d'analyse</label>
+                        <select name="rca_model">
+                            <option value="bayesian">Réseau bayésien</option>
+                            <option value="causal">Analyse causale (PC)</option>
+                            <option value="epsilon_diag">Epsilon-Diagnosis</option>
+                            <option value="random_walk">Random Walk</option>
+                            <option value="micro_scope">MicroScope</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>URL de l'API PyRCA</label>
+                        <input type="url" name="rca_api_url" placeholder="http://pyrca-api:5000">
+                    </div>
+                    <div class="form-group">
+                        <label>Clé API (optionnel)</label>
+                        <input type="text" name="rca_api_key" placeholder="sk-...">
+                    </div>
+                </div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" name="rca_auto_analyze" style="accent-color:#185FA5">
+                    <span style="font-size:13px">Analyse automatique lors d'une alerte critique</span>
+                </label>
+            </div>
+        </div>
+
+        {# Knowledge Graph #}
+        <div class="toggle-section">
+            <label class="toggle-header">
+                <input type="checkbox" name="kg_enabled" id="kg-enabled" onchange="toggleSection('kg-body', this.checked)">
+                <div>
+                    <div style="font-size:13.5px;font-weight:500">Activer le Knowledge Graph</div>
+                    <div class="form-hint">Cartographie des dépendances entre services (Neo4j / ArangoDB)</div>
+                </div>
+            </label>
+            <div class="toggle-body" id="kg-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Backend</label>
+                        <select name="kg_backend">
+                            <option value="neo4j">Neo4j</option>
+                            <option value="arangodb">ArangoDB</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nom de la base</label>
+                        <input type="text" name="kg_database" value="obstack">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>URI de connexion</label>
+                    <input type="url" name="kg_uri" placeholder="http://neo4j:7474">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Utilisateur</label>
+                        <input type="text" name="kg_user" value="neo4j">
+                    </div>
+                    <div class="form-group">
+                        <label>Mot de passe</label>
+                        <input type="password" name="kg_password" placeholder="••••••••">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Monitoring Modules #}
+        <div class="toggle-section">
+            <div class="toggle-header">
+                <div>
+                    <div style="font-size:13.5px;font-weight:500">Modules de monitoring</div>
+                    <div class="form-hint">Sélectionnez les modules que l'agent activera automatiquement après installation.</div>
+                </div>
+            </div>
+            <div class="toggle-body visible">
+                <label style="display:block; margin-bottom:12px;"><input type="checkbox" name="enabled_modules[]" value="prometheus"> Prometheus</label>
+                <label style="display:block; margin-bottom:12px;"><input type="checkbox" name="enabled_modules[]" value="opentelemetry"> OpenTelemetry + eBPF</label>
+                <label style="display:block; margin-bottom:12px;"><input type="checkbox" name="enabled_modules[]" value="loki"> Loki (logs)</label>
+                <label style="display:block; margin-bottom:12px;"><input type="checkbox" name="enabled_modules[]" value="jaeger"> Jaeger (tracing)</label>
+            </div>
+        </div>
+
+        <div class="step-actions">
+            <button type="button" class="btn btn-secondary" onclick="showStep(3)"><i class="ti ti-arrow-left"></i> Précédent</button>
+            <button type="button" class="btn btn-primary" onclick="buildSummary(); showStep(5)">Voir le récapitulatif <i class="ti ti-arrow-right"></i></button>
+        </div>
+    </div>
+
+    {# ===== ÉTAPE 5: RÉCAPITULATIF ===== #}
+    <div class="step-panel" id="step-5">
+        <div class="section-title"><i class="ti ti-list-check"></i>Récapitulatif avant création</div>
+        <div id="summary-content" class="summary-grid" style="margin-bottom:20px"></div>
+
+        <div class="warn-box">
+            <i class="ti ti-alert-triangle"></i>
+            Après la création, un <strong>environnement par défaut opérationnel</strong> sera automatiquement provisionné avec un token agent. Vous pourrez immédiatement installer l'agent sur vos serveurs.
+        </div>
+
+        <div class="step-actions">
+            <button type="button" class="btn btn-secondary" onclick="showStep(4)"><i class="ti ti-arrow-left"></i> Précédent</button>
+            <button type="submit" class="btn btn-success">
+                <i class="ti ti-rocket"></i>Créer mon instance obstack
+            </button>
+        </div>
+    </div>
+
+    </form>
+</div>
+
+<div style="text-align:center;margin-top:24px;font-size:13px;color:#6b7280">
+    Déjà inscrit ? <a href="{{ path('app_login') }}" style="color:#185FA5">Se connecter</a>
+</div>
+
+<script>
+var currentStep = 1;
+
+function showStep(n) {
+    var panel = document.getElementById('step-' + n);
+    var btn = document.getElementById('step-btn-' + n);
+    if (!panel || !btn) {
+        return;
+    }
+    var panels = document.querySelectorAll('.step-panel');
+    for (var i = 0; i < panels.length; i++) {
+        panels[i].classList.remove('active');
+    }
+    var buttons = document.querySelectorAll('.step-btn');
+    for (var j = 0; j < buttons.length; j++) {
+        buttons[j].classList.remove('active');
+    }
+    panel.classList.add('active');
+    btn.classList.add('active');
+    currentStep = n;
+    if (n === 5) {
+        buildSummary();
+    }
+    window.scrollTo(0, 0);
+}
+
+function toggleSection(id, show) {
+    var body = document.getElementById(id);
+    if (!body) {
+        return;
+    }
+    if (show) {
+        body.classList.add('visible');
+    } else {
+        body.classList.remove('visible');
+    }
+}
+
+function updateColorPreview(val) {
+    var preview = document.getElementById('color-preview');
+    if (preview) {
+        preview.style.background = val;
+    }
+}
+
+var checkTimeout;
+function checkName(val) {
+    clearTimeout(checkTimeout);
+    if (!val) {
+        return;
+    }
+    checkTimeout = setTimeout(function () {
+        fetch('{{ path("register_check_name") }}', {
+            method: 'POST',
+            body: 'name=' + encodeURIComponent(val),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+        })
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+            var slugDisplay = document.getElementById('slug-display');
+            var hint = document.getElementById('slug-preview');
+            if (slugDisplay) {
+                slugDisplay.textContent = data.slug;
+            }
+            if (hint) {
+                hint.style.color = data.available ? '#639922' : '#E24B4A';
+                hint.textContent = data.available
+                    ? '✓ Identifiant disponible: ' + data.slug
+                    : '✗ Nom déjà utilisé';
+            }
+        })
+        .catch(function () {
+            // ignore
+        });
+    }, 500);
+}
+
+function buildSummary() {
+    try {
+        var f = document.getElementById('registration-form');
+        if (!f) {
+            return;
+        }
+        var get = function (name) {
+            var el = f.querySelector('[name="' + name + '"]');
+            return el && el.value ? el.value : '—';
+        };
+        var checked = function (name) {
+            return !!f.querySelector('[name="' + name + '"]:checked');
+        };
+
+        var ldapValue = get('ldap_host') !== '—' ? get('ldap_host') + ':' + get('ldap_port') : 'Non configuré';
+        var pyrcaValue = checked('rca_enabled') ? get('rca_model') + ' — ' + get('rca_api_url') : 'Désactivé';
+        var kgValue = checked('kg_enabled') ? get('kg_backend') + ' — ' + get('kg_uri') : 'Désactivé';
+        var modules = [];
+        f.querySelectorAll('[name="enabled_modules[]"]:checked').forEach(function (el) {
+            modules.push(el.value);
+        });
+        var modulesValue = modules.length ? modules.join(', ') : 'Aucun';
+
+        var slugDisplay = document.getElementById('slug-display');
+        var slugText = slugDisplay && slugDisplay.textContent ? slugDisplay.textContent : '—';
+
+        var items = [
+            ['Entreprise', get('company_name')],
+            ['Identifiant URL', slugText],
+            ['Superadmin', get('admin_username')],
+            ['Email admin', get('admin_email')],
+            ['LDAP', ldapValue],
+            ['PyRCA', pyrcaValue],
+            ['Knowledge Graph', kgValue],
+            ['Modules de monitoring', modulesValue],
+            ['Env. par défaut', 'Créé automatiquement (opérationnel immédiatement)']
+        ];
+
+        var summary = document.getElementById('summary-content');
+        if (!summary) {
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < items.length; i++) {
+            html += '<div class="summary-item"><strong>' + items[i][0] + '</strong>' + items[i][1] + '</div>';
+        }
+        summary.innerHTML = html;
+    } catch (error) {
+        console.error('buildSummary error:', error);
+    }
+}
+</script>
+</body>
+</html>

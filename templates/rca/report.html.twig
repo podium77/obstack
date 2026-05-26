@@ -1,0 +1,131 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Rapport RCA - {{ analysis.id }}{% endblock %}
+{% block page_title %}Rapport RCA{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
+    <a href="{{ path('app_rca_analysis', {alertId: analysis.alert.id}) }}" class="btn btn-secondary">
+        <i class="ti ti-arrow-left"></i> Retour à l'analyse
+    </a>
+    <button onclick="window.print()" class="btn btn-secondary">
+        <i class="ti ti-printer"></i> Imprimer
+    </button>
+</div>
+
+<div style="background:white;border:1px solid var(--color-border);border-radius:var(--radius-md);padding:32px;max-width:900px;margin:0 auto">
+    {# --- En-tête --- #}
+    <div style="text-align:center;margin-bottom:32px;border-bottom:2px solid var(--color-border);padding-bottom:20px">
+        <h1 style="font-size:24px;font-weight:700;margin:0;color:var(--color-text-primary)">Rapport d'analyse RCA</h1>
+        <p style="margin:8px 0 0 0;color:var(--color-text-secondary);font-size:14px">
+            Généré le {{ analysis.createdAt|date('d/m/Y à H:i:s') }}
+        </p>
+    </div>
+
+    {# --- Informations générales --- #}
+    <div style="margin-bottom:32px">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:16px;color:var(--color-text-primary)">Informations générales</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+                <div style="margin-bottom:8px"><strong>Entreprise :</strong> {{ analysis.alert.application.environment.company.name }}</div>
+                <div style="margin-bottom:8px"><strong>Environnement :</strong> {{ analysis.alert.application.environment.name }}</div>
+                <div style="margin-bottom:8px"><strong>Application :</strong> {{ analysis.alert.application.name }}</div>
+            </div>
+            <div>
+                <div style="margin-bottom:8px"><strong>Alerte :</strong> {{ analysis.alert.title }}</div>
+                <div style="margin-bottom:8px"><strong>Sévérité :</strong>
+                    <span class="badge {% if analysis.alert.severity == 'critical' %}badge-error{% elseif analysis.alert.severity == 'warning' %}badge-warning{% else %}badge-info{% endif %}">
+                        {{ analysis.alert.severity|capitalize }}
+                    </span>
+                </div>
+                <div style="margin-bottom:8px"><strong>Date de l'alerte :</strong> {{ analysis.alert.triggeredAt|date('d/m/Y à H:i:s') }}</div>
+            </div>
+        </div>
+    </div>
+
+    {# --- Cause probable --- #}
+    <div style="margin-bottom:32px">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:16px;color:var(--color-text-primary)">Cause probable</h2>
+        <div style="background:var(--color-info-light);border-radius:var(--radius-sm);padding:16px;font-size:15px">
+            {{ analysis.probableCause|default('Non déterminée') }}
+        </div>
+    </div>
+
+    {# --- Détails techniques --- #}
+    <div style="margin-bottom:32px">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:16px;color:var(--color-text-primary)">Détails techniques</h2>
+        <div style="white-space:pre-wrap;font-family:monospace;font-size:13px;background:var(--color-bg-secondary);padding:16px;border-radius:var(--radius-sm)">
+{{ analysis.details|default('Aucun détail disponible.')|nl2br }}
+        </div>
+    </div>
+
+    {# --- Recommandations --- #}
+    <div style="margin-bottom:32px">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:16px;color:var(--color-text-primary)">Recommandations</h2>
+        {% if analysis.recommendations|length > 0 %}
+        <ol style="padding-left:20px">
+            {% for recommendation in analysis.recommendations %}
+            <li style="margin-bottom:12px">{{ recommendation }}</li>
+            {% endfor %}
+        </ol>
+        {% else %}
+        <p style="color:var(--color-text-secondary)">Aucune recommandation disponible.</p>
+        {% endif %}
+    </div>
+
+    {# --- Métriques --- #}
+    <div style="margin-bottom:32px">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:16px;color:var(--color-text-primary)">Métriques au moment de l'alerte</h2>
+        <table style="width:100%;border-collapse:collapse">
+            <thead>
+                <tr style="background:var(--color-bg-secondary)">
+                    <th style="text-align:left;padding:12px;border-bottom:1px solid var(--color-border)">Métrique</th>
+                    <th style="text-align:left;padding:12px;border-bottom:1px solid var(--color-border)">Valeur</th>
+                    <th style="text-align:left;padding:12px;border-bottom:1px solid var(--color-border)">Seuil</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for metric, value in analysis.metricsAtTrigger %}
+                <tr>
+                    <td style="padding:12px;border-bottom:1px solid var(--color-border)">{{ metric|replace({'_': ' '})|title }}</td>
+                    <td style="padding:12px;border-bottom:1px solid var(--color-border)">{{ value }} {{ analysis.metricsUnits[metric] ?? '' }}</td>
+                    <td style="padding:12px;border-bottom:1px solid var(--color-border)">
+                        {% if analysis.thresholds[metric] is defined %}
+                        {{ analysis.thresholds[metric] }} {{ analysis.metricsUnits[metric] ?? '' }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {# --- Historique des événements --- #}
+    {% if analysis.timeline|length > 0 %}
+    <div style="margin-bottom:32px">
+        <h2 style="font-size:18px;font-weight:600;margin-bottom:16px;color:var(--color-text-primary)">Historique des événements</h2>
+        <div style="position:relative;padding-left:30px;border-left:2px solid var(--color-border)">
+            {% for event in analysis.timeline %}
+            <div style="position:relative;margin-bottom:20px;padding-left:15px">
+                <div style="position:absolute;left:-30px;top:0;width:12px;height:12px;background:var(--color-brand);border-radius:50%;border:2px solid white"></div>
+                <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:4px">
+                    {{ event.timestamp|date('d/m/Y H:i:s') }}
+                </div>
+                <div style="font-weight:500">{{ event.title }}</div>
+                <div style="font-size:13px;color:var(--color-text-secondary);margin-top:4px">
+                    {{ event.description }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# --- Pied de page --- #}
+    <div style="text-align:center;margin-top:32px;padding-top:20px;border-top:1px solid var(--color-border);color:var(--color-text-secondary);font-size:12px">
+        <p>Généré par obstack - {{ analysis.createdAt|date('d/m/Y à H:i:s') }}</p>
+    </div>
+</div>
+{% endblock %}

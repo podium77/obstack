@@ -1,0 +1,72 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gestion des agents{% endblock %}
+{% block page_title %}Gestion des agents{% endblock %}
+{% block page_subtitle_content %}Liste des tokens d'agent et leur statut{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px">
+    <a href="{{ path('app_agent_new', {envId: environments[0].id}) }}" class="btn btn-primary">
+        <i class="ti ti-plus"></i> Nouveau token
+    </a>
+</div>
+
+<div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Environnement</th>
+                <th>Application</th>
+                <th>Hostname détecté</th>
+                <th>Dernier heartbeat</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for token in tokens %}
+            <tr>
+                <td>{{ token.name }}</td>
+                <td>{{ token.environment.name }}</td>
+                <td>
+                    {% if token.application %}
+                    <a href="{{ path('app_application_show', {id: token.application.id}) }}">{{ token.application.name }}</a>
+                    {% else %}
+                    <span style="color:var(--color-text-secondary)">Non associé</span>
+                    {% endif %}
+                </td>
+                <td>{{ token.detectedHostname ?? '—' }}</td>
+                <td>{{ token.lastHeartbeatAt ? token.lastHeartbeatAt|date('Y-m-d H:i:s') : '—' }}</td>
+                <td>
+                    <span class="badge {% if token.isValid %}badge-success{% else %}badge-error{% endif %}">
+                        {% if token.isValid %}Valide{% else %}Invalide{% endif %}
+                    </span>
+                </td>
+                <td>
+                    <div style="display:flex;gap:8px">
+                        <a href="{{ path('api_agent_install_script', {token: token.token}) }}" class="btn btn-sm btn-secondary" download>
+                            <i class="ti ti-download"></i> Script
+                        </a>
+                        {% if token.isValid %}
+                        <form action="{{ path('app_agent_revoke', {id: token.id}) }}" method="post" onsubmit="return confirm('Révoker ce token ?')">
+                            <input type="hidden" name="_token" value="{{ csrf_token('revoke_token_' ~ token.id) }}">
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                <i class="ti ti-ban"></i> Révoker
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align:center;color:var(--color-text-secondary);padding:40px">
+                    Aucun token d'agent trouvé.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

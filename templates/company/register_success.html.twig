@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instance créée — obstack</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2f5; min-height: 100vh; padding: 32px 16px; }
+        .container { max-width: 860px; margin: 0 auto; }
+        .success-header { background: linear-gradient(135deg, #0f2744 0%, #185FA5 100%); color: #fff; border-radius: 14px; padding: 36px; text-align: center; margin-bottom: 24px; }
+        .success-header .icon { font-size: 56px; margin-bottom: 12px; }
+        .success-header h1 { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+        .success-header p { opacity: .8; font-size: 14px; }
+        .card { background: #fff; border: 1px solid #e2e6ea; border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+        .card-header { padding: 16px 20px; border-bottom: 1px solid #f0f2f5; display: flex; align-items: center; gap: 10px; }
+        .card-header h2 { font-size: 15px; font-weight: 600; flex: 1; }
+        .card-body { padding: 20px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .info-item { background: #f8f9fb; border-radius: 8px; padding: 12px 14px; }
+        .info-item .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af; margin-bottom: 4px; }
+        .info-item .value { font-size: 14px; font-weight: 500; color: #1a1d23; }
+        .info-item .value code { font-family: monospace; font-size: 12px; background: #e2e6ea; padding: 2px 6px; border-radius: 4px; }
+        .token-box { background: #0f1923; border-radius: 10px; padding: 16px 18px; font-family: monospace; font-size: 13px; color: #69db7c; word-break: break-all; position: relative; }
+        .copy-btn { position: absolute; top: 10px; right: 10px; background: #1d2d3e; color: #9ca3af; border: none; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+        .copy-btn:hover { background: #2d3f52; color: #fff; }
+        .script-box { background: #0f1923; border-radius: 10px; padding: 16px 18px; font-family: monospace; font-size: 12px; color: #c9d1d9; max-height: 280px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; position: relative; }
+        .tab-nav { display: flex; border-bottom: 1px solid #e2e6ea; }
+        .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 500; border: none; background: none; cursor: pointer; color: #6b7280; border-bottom: 2px solid transparent; }
+        .tab-btn.active { color: #185FA5; border-bottom-color: #185FA5; }
+        .tab-content { display: none; padding: 20px; }
+        .tab-content.active { display: block; }
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; font-size: 13.5px; font-weight: 500; cursor: pointer; border: none; text-decoration: none; transition: all .12s; }
+        .btn-primary { background: #185FA5; color: #fff; }
+        .btn-primary:hover { background: #0f4578; }
+        .btn-secondary { background: #f0f2f5; color: #374151; }
+        .step-list { counter-reset: steps; }
+        .step-item { display: flex; gap: 14px; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #f0f2f5; }
+        .step-item:last-child { border: none; margin: 0; padding: 0; }
+        .step-num { width: 28px; height: 28px; background: #185FA5; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+        .step-content h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .step-content p { font-size: 13px; color: #6b7280; }
+        .alert-warn { background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #92400e; margin-bottom: 16px; display: flex; gap: 8px; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="success-header">
+        <div class="icon"></div>
+        <h1>Votre instance obstack est prête !</h1>
+        <p>L'entreprise <strong>{{ company.name }}</strong> a été provisionnée avec succès.<br>
+           Un environnement par défaut opérationnel a été créé automatiquement.</p>
+    </div>
+
+    {# INFORMATIONS DE L'INSTANCE #}
+    <div class="card">
+        <div class="card-header">
+            <i class="ti ti-building" style="font-size:18px;color:#185FA5"></i>
+            <h2>Informations de votre instance</h2>
+        </div>
+        <div class="card-body">
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="label">Entreprise</div>
+                    <div class="value">{{ company.name }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Identifiant unique (slug)</div>
+                    <div class="value"><code>{{ company.slug }}</code></div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Superadmin</div>
+                    <div class="value">{{ super_admin.username }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Environnement par défaut</div>
+                    <div class="value">{{ default_env.name }} <code>{{ default_env.slug }}</code></div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Clé de licence</div>
+                    <div class="value"><code>{{ company.licenseKey|slice(0,16) }}…</code></div>
+                </div>
+                <div class="info-item">
+                    <div class="label">LDAP</div>
+                    <div class="value">{{ company.ldapHost ? '✓ ' ~ company.ldapHost : 'Non configuré' }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# TOKEN AGENT #}
+    <div class="card">
+        <div class="card-header">
+            <i class="ti ti-key" style="font-size:18px;color:#185FA5"></i>
+            <h2>Token agent — Environnement par défaut</h2>
+            <a href="{{ path('api_agent_install_script', {token: agent_token.token}) }}"
+               class="btn btn-secondary" style="font-size:12px;padding:6px 12px">
+                <i class="ti ti-download"></i>Télécharger le script
+            </a>
+        </div>
+
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="showTab('tab-token')">Token brut</button>
+            <button class="tab-btn" onclick="showTab('tab-curl')">Installation rapide</button>
+            <button class="tab-btn" onclick="showTab('tab-script')">Script complet</button>
+        </div>
+
+        <div class="tab-content active" id="tab-token">
+            <div class="alert-warn">
+                <i class="ti ti-alert-triangle"></i>
+                <div><strong>Conservez ce token en lieu sûr.</strong> Il ne sera affiché qu'une seule fois. En cas de perte, générez un nouveau token depuis l'interface.</div>
+            </div>
+            <div class="token-box" id="token-value">
+                {{ agent_token.token }}
+                <button class="copy-btn" onclick="copyText('token-value')"><i class="ti ti-copy"></i>Copier</button>
+            </div>
+            <div style="margin-top:10px;font-size:12px;color:#9ca3af">
+                Format: <code>obs_{company_slug}_{env_slug}_{random64}</code> — Spécifique à votre entreprise et environnement
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-curl">
+            <p style="font-size:13px;color:#6b7280;margin-bottom:12px">Exécutez cette commande en <strong>root</strong> sur chaque machine à superviser :</p>
+            <div class="token-box" id="curl-cmd">
+curl -fsSL {{ app.request.schemeAndHttpHost }}/api/v1/agent/install/{{ agent_token.token }} | sudo bash
+                <button class="copy-btn" onclick="copyText('curl-cmd')"><i class="ti ti-copy"></i>Copier</button>
+            </div>
+            <p style="margin-top:12px;font-size:12.5px;color:#6b7280">
+                L'agent va automatiquement détecter le type de machine (VM/physique/cloud), les technologies installées (Tomcat, Oracle, PostgreSQL, Docker, Kubernetes...) et s'enregistrer auprès de la plateforme.
+            </p>
+        </div>
+
+        <div class="tab-content" id="tab-script">
+            <p style="font-size:13px;color:#6b7280;margin-bottom:12px">Script bash complet (détection matérielle + technologies + installation + enregistrement) :</p>
+            <div class="script-box" id="script-content">{{ install_script|e|slice(0, 3000) }}
+[... Script complet disponible via le bouton "Télécharger le script" ...]</div>
+            <button class="copy-btn" style="position:static;margin-top:8px;display:inline-flex" onclick="copyText('script-content')">
+                <i class="ti ti-copy"></i>Copier le script
+            </button>
+        </div>
+    </div>
+
+    {# PROCHAINES ÉTAPES #}
+    <div class="card">
+        <div class="card-header">
+            <i class="ti ti-list-check" style="font-size:18px;color:#185FA5"></i>
+            <h2>Prochaines étapes</h2>
+        </div>
+        <div class="card-body">
+            <div class="step-list">
+                <div class="step-item">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                        <h4>Se connecter à la plateforme</h4>
+                        <p>Utilisez votre identifiant superadmin <code>{{ super_admin.username }}</code> pour accéder au tableau de bord.</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                        <h4>Installer l'agent sur vos serveurs</h4>
+                        <p>Exécutez le script d'installation (onglet ci-dessus) sur chaque machine à superviser. L'agent détecte automatiquement les technologies installées.</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                        <h4>Créer des environnements supplémentaires</h4>
+                        <p>En tant que superadmin, créez des environnements spécifiques (prod, dev, lab…) depuis le menu Environnements. Chaque environnement génère ses propres tokens agents.</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">4</div>
+                    <div class="step-content">
+                        <h4>Ajouter des utilisateurs</h4>
+                        <p>Invitez vos équipes via l'annuaire LDAP ou créez un compte local par environnement. Assignez des rôles précis (Lecteur, Opérateur, Admin).</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">5</div>
+                    <div class="step-content">
+                        <h4>Configurer les politiques d'auto-remédiation</h4>
+                        <p>Définissez des règles automatiques pour redémarrer Tomcat, libérer de la mémoire, sauvegarder les BDD, etc.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align:center;margin-top:8px">
+        <a href="{{ path('app_login') }}" class="btn btn-primary" style="font-size:15px;padding:12px 28px">
+            <i class="ti ti-login"></i>Accéder à mon tableau de bord
+        </a>
+    </div>
+
+</div>
+
+<script>
+function showTab(tabId) {
+    event.preventDefault();
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    event.target.classList.add('active');
+}
+
+function copyText(elementId) {
+    const text = document.getElementById(elementId).textContent.trim()
+        .replace(/Copier(\s+(le script|le token))?/g, '').trim();
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target.closest('.copy-btn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="ti ti-check"></i>Copié !';
+        setTimeout(() => btn.innerHTML = orig, 2000);
+    });
+}
+</script>
+</body>
+</html>

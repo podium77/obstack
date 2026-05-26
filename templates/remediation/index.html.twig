@@ -1,0 +1,146 @@
+{% extends 'base.html.twig' %}
+{% block title %}Remédiation{% endblock %}
+{% block page_title %}Auto-remédiation{% endblock %}
+{% block page_subtitle_content %}Historique et catalogue des actions disponibles{% endblock %}
+
+{% block content %}
+
+{# Catalogue des actions #}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-book"></i>Actions disponibles</div>
+    </div>
+    <div class="card-body">
+        {% set categories = ['Tomcat', 'Base de données', 'Système'] %}
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+        {% for category in categories %}
+        <div>
+            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;
+                        color:var(--color-text-tertiary);margin-bottom:10px;padding-bottom:5px;
+                        border-bottom:1px solid var(--color-border)">
+                {{ category }}
+            </div>
+            {% for action in actions %}
+            {% if action.getCategory() == category %}
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 0;
+                        border-bottom:1px solid var(--color-border);font-size:12.5px">
+                <div class="icon-status {{ action.isDestructive ? 'critical' : 'ok' }}"
+                     style="width:24px;height:24px;font-size:12px;flex-shrink:0">
+                    <i class="ti ti-{{ action.getIcon() }}"></i>
+                </div>
+                <span>{{ action.getLabel() }}</span>
+                {% if action.isDestructive %}
+                <span class="severity-badge severity-critical" style="font-size:9px;margin-left:auto">DESTRUCTIF</span>
+                {% endif %}
+                {% if action.requiresConfirmation %}
+                <span class="severity-badge severity-warning" style="font-size:9px;margin-left:auto">CONFIRM.</span>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+        </div>
+    </div>
+</div>
+
+{# Historique #}
+<div class="card">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-history"></i>Historique des remédiations</div>
+        <div style="font-size:12px;color:var(--color-text-tertiary)">
+            {{ recentLogs|length }} entrée(s) · {{ obs_envs|length }} environnement(s) accessible(s)
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Action</th>
+                    <th>Application</th>
+                    <th>Environnement</th>
+                    <th>Déclenché par</th>
+                    <th>Statut</th>
+                    <th>Durée</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for log in recentLogs %}
+            <tr>
+                <td class="font-mono text-muted text-sm">#{{ log.id }}</td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <i class="ti ti-{{ log.action.getIcon() }}" style="color:var(--color-brand)"></i>
+                        <div>
+                            <div style="font-weight:500;font-size:13px">{{ log.action.getLabel() }}</div>
+                            <div class="text-muted text-sm">{{ log.action.getCategory() }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <a href="{{ path('app_application_show', {id: log.application.id}) }}"
+                       style="color:inherit;font-weight:500">
+                        {{ log.application.name }}
+                    </a>
+                    <div class="text-muted text-sm">{{ log.application.hostAddress }}</div>
+                </td>
+                <td>
+                    <span style="font-size:11px;padding:2px 7px;border-radius:8px;font-weight:500;
+                                 background:{{ log.application.environment.type.getBadgeColor() }}22;
+                                 color:{{ log.application.environment.type.getBadgeColor() }}">
+                        {{ log.application.environment.name }}
+                    </span>
+                </td>
+                <td>
+                    {% if log.automatic %}
+                        <span class="severity-badge severity-info" style="font-size:11px">
+                            <i class="ti ti-robot"></i>Auto
+                        </span>
+                        {% if log.policy %}
+                        <div class="text-muted text-sm" style="margin-top:2px">{{ log.policy.name }}</div>
+                        {% endif %}
+                    {% else %}
+                        <span style="font-size:13px"><i class="ti ti-user"></i> {{ log.triggeredBy }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="severity-badge {{ log.success ? 'severity-ok' : 'severity-critical' }}">
+                        <i class="ti ti-{{ log.success ? 'circle-check' : 'circle-x' }}"></i>
+                        {{ log.success ? 'Succès' : 'Échec' }}
+                    </span>
+                    {% if not log.success and log.errorMessage %}
+                    <div style="font-size:11px;color:var(--color-critical);margin-top:2px;
+                                max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                         title="{{ log.errorMessage }}">
+                        {{ log.errorMessage|slice(0,40) }}…
+                    </div>
+                    {% endif %}
+                </td>
+                <td class="font-mono text-sm">{{ log.durationSeconds ? log.durationSeconds ~ 's' : '—' }}</td>
+                <td>
+                    <div style="font-size:12.5px">{{ log.executedAt|date('d/m/Y') }}</div>
+                    <div class="text-muted text-sm">{{ log.executedAt|date('H:i:s') }}</div>
+                </td>
+                <td>
+                    <a href="{{ path('remediation_log_show', {id: log.id}) }}"
+                       class="btn btn-sm btn-secondary">
+                        <i class="ti ti-eye"></i>Rapport
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" style="text-align:center;padding:48px;color:var(--color-text-tertiary)">
+                    <i class="ti ti-robot" style="font-size:40px;display:block;margin-bottom:10px;color:var(--color-border)"></i>
+                    Aucune remédiation exécutée pour l'instant.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

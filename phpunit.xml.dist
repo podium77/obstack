@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="tests/bootstrap.php" colors="true" verbose="true">
+    <php>
+        <env name="APP_ENV" value="test"/>
+        <env name="APP_DEBUG" value="1"/>
+        <env name="APP_SECRET" value="testsecret"/>
+        <env name="KERNEL_CLASS" value="App\Kernel"/>
+        <env name="DATABASE_URL" value="sqlite:///:memory:"/>
+        <env name="REDIS_URL" value="redis://127.0.0.1:6379"/>
+        <env name="MESSENGER_TRANSPORT_DSN" value="redis://127.0.0.1:6379/messages"/>
+        <env name="MAILER_DSN" value="null://null"/>
+        <env name="MAIL_FROM" value="test@example.com"/>
+        <env name="MAIL_ADMIN" value="admin@example.com"/>
+        <env name="APP_BASE_URL" value="http://localhost"/>
+        <env name="DEFAULT_URI" value="http://localhost"/>
+        <env name="VAR_DUMPER_SERVER" value="127.0.0.1:9912"/>
+    </php>
+
+    <testsuites>
+        <testsuite name="Application Test Suite">
+            <directory>./tests/</directory>
+        </testsuite>
+    </testsuites>
+</phpunit>

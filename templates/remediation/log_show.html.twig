@@ -1,0 +1,280 @@
+{% extends 'base.html.twig' %}
+{% block title %}Rapport #{{ log.id }}{% endblock %}
+{% block page_title %}Rapport de remédiation{% endblock %}
+{% block page_subtitle_content %}
+    {{ log.action.getLabel() }} — {{ log.application.name }}
+    <span style="font-size:11px;padding:2px 7px;border-radius:8px;margin-left:6px;
+                 background:{{ log.application.environment.type.getBadgeColor() }}22;
+                 color:{{ log.application.environment.type.getBadgeColor() }}">
+        {{ log.application.environment.name }}
+    </span>
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{{ path('app_application_show', {id: log.application.id}) }}" class="btn btn-sm btn-secondary">
+    <i class="ti ti-arrow-left"></i>{{ log.application.name }}
+</a>
+<a href="{{ path('remediation_index') }}" class="btn btn-sm btn-secondary">
+    <i class="ti ti-history"></i>Historique
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid-2-1">
+
+<div style="display:flex;flex-direction:column;gap:16px">
+
+    {# Bannière statut #}
+    <div class="card" style="border-left:4px solid {{ log.success ? 'var(--color-ok)' : 'var(--color-critical)' }}">
+        <div class="card-body">
+            <div style="display:flex;align-items:center;gap:16px">
+                <div class="icon-status {{ log.success ? 'ok' : 'critical' }}"
+                     style="width:52px;height:52px;font-size:26px">
+                    <i class="ti ti-{{ log.success ? 'circle-check' : 'circle-x' }}"></i>
+                </div>
+                <div style="flex:1">
+                    <div style="font-size:20px;font-weight:700;
+                                color:{{ log.success ? 'var(--color-ok)' : 'var(--color-critical)' }}">
+                        {{ log.success ? '✓ Remédiation réussie' : '✗ Remédiation échouée' }}
+                    </div>
+                    <div style="color:var(--color-text-secondary);font-size:13px;margin-top:4px">
+                        <i class="ti ti-{{ log.action.getIcon() }}"></i>
+                        {{ log.action.getLabel() }} ·
+                        {% if log.automatic %}
+                            <span style="color:var(--color-info)"><i class="ti ti-robot"></i> Déclenchement automatique</span>
+                        {% else %}
+                            <i class="ti ti-user"></i> {{ log.triggeredBy }}
+                        {% endif %}
+                        · {{ log.executedAt|date('d/m/Y à H:i:s') }}
+                        {% if log.durationSeconds %}
+                        · <strong>{{ log.durationSeconds }}s</strong>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Journal d'exécution terminal #}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title">
+                <i class="ti ti-terminal-2"></i>Journal d'exécution
+            </div>
+            <button onclick="copyLog()" class="btn btn-sm btn-secondary">
+                <i class="ti ti-copy"></i>Copier
+            </button>
+        </div>
+        <div style="background:#0d1117;border-radius:0 0 var(--radius-md) var(--radius-md);
+                    padding:18px;font-family:'JetBrains Mono','Fira Code',monospace;
+                    font-size:12.5px;line-height:1.8;max-height:420px;overflow-y:auto" id="log-terminal">
+            {% for step in log.steps %}
+            <div style="display:flex;gap:14px">
+                <span style="color:#4a7c9e;flex-shrink:0;user-select:none">[{{ step.time }}]</span>
+                <span style="color:{% if 'ERREUR' in step.message or 'Erreur' in step.message or 'échoué' in step.message or 'ERROR' in step.message %}#ff6b6b{% elseif 'succès' in step.message|lower or 'réussie' in step.message|lower or 'terminé' in step.message|lower or 'OK' in step.message %}#69db7c{% elseif 'Avertissement' in step.message or 'WARN' in step.message %}#ffd43b{% elseif 'Connexion SSH' in step.message or 'Démarrage' in step.message or 'Arrêt' in step.message %}#a78bfa{% else %}#c9d1d9{% endif %}">
+                    {{ step.message }}
+                </span>
+            </div>
+            {% else %}
+            <span style="color:#4a7c9e">Aucune étape enregistrée.</span>
+            {% endfor %}
+
+            {% if not log.success and log.errorMessage %}
+            <div style="margin-top:12px;padding:10px 14px;background:rgba(255,107,107,.1);
+                        border-left:3px solid #ff6b6b;border-radius:4px">
+                <span style="color:#ff6b6b">ERREUR: {{ log.errorMessage }}</span>
+            </div>
+            {% endif %}
+
+            {% if log.success %}
+            <div style="margin-top:10px;padding:6px 10px;background:rgba(105,219,124,.08);
+                        border-left:3px solid #69db7c;border-radius:4px">
+                <span style="color:#69db7c">✓ Remédiation terminée avec succès en {{ log.durationSeconds ?? '?' }}s</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Résumé complet #}
+    {% if log.summary %}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-file-text"></i>Résumé</div>
+            <button onclick="copyText('summary-pre')" class="btn btn-sm btn-secondary">
+                <i class="ti ti-copy"></i>Copier
+            </button>
+        </div>
+        <div class="card-body">
+            <pre id="summary-pre" style="font-family:monospace;font-size:12.5px;
+                 white-space:pre-wrap;color:var(--color-text-secondary);
+                 line-height:1.7">{{ log.summary }}</pre>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Métriques avant/après #}
+    {% if log.metricsBefore|length > 0 or log.metricsAfter|length > 0 %}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title">
+                <i class="ti ti-chart-arrows-vertical"></i>Métriques avant / après
+            </div>
+        </div>
+        <div class="card-body" style="padding:0">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Métrique</th>
+                        <th style="text-align:center">Avant</th>
+                        <th style="text-align:center">Après</th>
+                        <th style="text-align:center">Évolution</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for key, before in log.metricsBefore %}
+                {% set after = log.metricsAfter[key] ?? null %}
+                <tr>
+                    <td style="font-weight:500">{{ key }}</td>
+                    <td class="font-mono text-sm" style="text-align:center">{{ before }}</td>
+                    <td class="font-mono text-sm" style="text-align:center;
+                        color:{{ after is not null and after < before ? 'var(--color-ok)' : after is not null and after > before ? 'var(--color-critical)' : 'inherit' }}">
+                        {{ after ?? '—' }}
+                    </td>
+                    <td style="text-align:center;font-size:12px">
+                        {% if after is not null and before is not null %}
+                            {% set diff = after - before %}
+                            <span style="color:{{ diff < 0 ? 'var(--color-ok)' : diff > 0 ? 'var(--color-critical)' : 'var(--color-text-tertiary)' }}">
+                                {{ diff > 0 ? '+' : '' }}{{ diff|round(1) }}
+                                {{ diff < 0 ? '▼' : diff > 0 ? '▲' : '=' }}
+                            </span>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+{# Panneau droite #}
+<div style="display:flex;flex-direction:column;gap:16px">
+
+    {# Métadonnées #}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-info-circle"></i>Informations</div>
+        </div>
+        <div class="card-body">
+            {% for label, value in {
+                'Action':           log.action.getLabel(),
+                'Catégorie':        log.action.getCategory(),
+                'Application':      log.application.name,
+                'Serveur':          log.application.hostAddress,
+                'OS':               log.application.osType.getLabel(),
+                'Environnement':    log.application.environment.name,
+                'Type machine':     log.application.machineType.getLabel(),
+                'Déclenchement':    log.automatic ? 'Automatique (politique)' : 'Manuel: ' ~ log.triggeredBy,
+                'Politique':        log.policy ? log.policy.name : '—',
+                'Date':             log.executedAt|date('d/m/Y à H:i:s'),
+                'Durée':            log.durationSeconds ? log.durationSeconds ~ ' secondes' : '—',
+                'Résultat':         log.success ? '✓ Succès' : '✗ Échec',
+            } %}
+            <div style="display:flex;padding:8px 0;border-bottom:1px solid var(--color-border);font-size:12.5px">
+                <span style="width:130px;color:var(--color-text-secondary);flex-shrink:0;font-size:12px">{{ label }}</span>
+                <span style="font-weight:500;overflow:hidden;text-overflow:ellipsis">{{ value }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Actions rapides #}
+    {% if is_granted('ROLE_OPERATOR') %}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-bolt"></i>Actions</div>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:8px">
+            <button onclick="reExecute()" class="btn btn-secondary">
+                <i class="ti ti-refresh"></i>Ré-exécuter cette action
+            </button>
+            {% if not log.success %}
+            <div style="font-size:12px;color:var(--color-text-tertiary);padding:8px;
+                        background:var(--color-bg-secondary);border-radius:var(--radius-sm)">
+                <i class="ti ti-bulb"></i>
+                La remédiation a échoué. Vérifiez les logs SSH et les droits sudo sur
+                <code>{{ log.application.hostAddress }}</code>.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Politique associée #}
+    {% if log.policy %}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-robot"></i>Politique déclencheuse</div>
+        </div>
+        <div class="card-body" style="font-size:13px">
+            <div style="font-weight:600;margin-bottom:8px">{{ log.policy.name }}</div>
+            {% if log.policy.description %}
+            <p style="color:var(--color-text-secondary);margin-bottom:8px">{{ log.policy.description }}</p>
+            {% endif %}
+            <div style="display:grid;gap:5px;font-size:12.5px">
+                <div style="display:flex;gap:8px">
+                    <span style="color:var(--color-text-secondary);width:100px">Déclencheur</span>
+                    <span>{{ log.policy.triggerMetric.getLabel() }} {{ log.policy.operator }} {{ log.policy.threshold }}{{ log.policy.triggerMetric.getUnit() }}</span>
+                </div>
+                <div style="display:flex;gap:8px">
+                    <span style="color:var(--color-text-secondary);width:100px">Cooldown</span>
+                    <span>{{ log.policy.cooldownMinutes }} minutes</span>
+                </div>
+                <div style="display:flex;gap:8px">
+                    <span style="color:var(--color-text-secondary);width:100px">Mode</span>
+                    <span>{{ log.policy.autoExecute ? '🤖 Automatique' : '👤 Manuel' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+function copyLog() {
+    const lines = [...document.querySelectorAll('#log-terminal > div')]
+        .map(d => d.textContent.trim())
+        .join('\n');
+    navigator.clipboard.writeText(lines).then(() => {
+        event.target.closest('button').innerHTML = '<i class="ti ti-check"></i>Copié !';
+        setTimeout(() => {
+            event.target.closest('button').innerHTML = '<i class="ti ti-copy"></i>Copier';
+        }, 2000);
+    });
+}
+
+function copyText(id) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent);
+}
+
+async function reExecute() {
+    if (!confirm('Ré-exécuter "{{ log.action.getLabel() }}" sur {{ log.application.name }} ?')) return;
+
+    const res  = await fetch('/remediation/execute', {
+        method: 'POST',
+        body: new URLSearchParams({
+            app_id: {{ log.application.id }},
+            action: '{{ log.action.value }}'
+        }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+    const data = await res.json();
+    alert(data.message || data.error || 'Erreur');
+    if (data.success) setTimeout(() => location.href = '/remediation', 1500);
+}
+{% endblock %}

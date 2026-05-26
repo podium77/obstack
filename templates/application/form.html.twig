@@ -1,0 +1,274 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ isNew ? 'Nouvelle application' : 'Modifier ' ~ application.name }}{% endblock %}
+{% block page_title %}{{ isNew ? 'Nouvelle application supervisée' : 'Modifier ' ~ application.name }}{% endblock %}
+{% block page_subtitle_content %}Configuration du stack et des paramètres de surveillance{% endblock %}
+
+{% block content %}
+<form method="post" id="app-form">
+
+    {# TABS NAV #}
+    <div style="display:flex;gap:0;margin-bottom:0;border-bottom:1px solid var(--color-border);background:var(--color-bg-primary);border-radius:var(--radius-md) var(--radius-md) 0 0;overflow:hidden">
+        {% for tabId, tabLabel in {
+            'general':    'Général',
+            'connection': 'Connexion SSH',
+            'services':   'Services',
+            'thresholds': 'Seuils',
+            'reboot':     'Redémarrage planifié'
+        } %}
+        <button type="button" onclick="showTab('{{ tabId }}')"
+                id="tab-btn-{{ tabId }}"
+                style="padding:12px 20px;border:none;background:none;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;font-weight:500;color:var(--color-text-secondary);transition:all .12s"
+                class="tab-btn">
+            {{ tabLabel }}
+        </button>
+        {% endfor %}
+    </div>
+
+    <div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-top:none;border-radius:0 0 var(--radius-md) var(--radius-md);padding:28px">
+
+        {# ===== TAB: GÉNÉRAL ===== #}
+        <div id="tab-general" class="tab-panel">
+            {% if isNew %}
+            <div class="form-group">
+                <label class="form-label">Environnement *</label>
+                <select name="environment_id">
+                    {% for env in environments %}
+                    <option value="{{ env.id }}">{{ env.name }} ({{ env.company.name }})</option>
+                    {% endfor %}
+                </select>
+                <div class="form-hint">Sélectionnez l'environnement auquel cette application appartient.</div>
+            </div>
+            {% endif %}
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Nom de l'application *</label>
+                    <input type="text" name="name" value="{{ application.name ?? '' }}" placeholder="ex: CRM-Portal">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Couleur d'identification</label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input type="color" name="color" value="{{ application.color ?? '#185FA5' }}" style="width:50px;height:38px;padding:2px;border-radius:6px">
+                        <span class="form-hint">Couleur d'affichage dans le tableau de bord</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea name="description" rows="2" placeholder="Description courte de cette application...">{{ application.description ?? '' }}</textarea>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Système d'exploitation *</label>
+                    <select name="os_type">
+                        {% for os in osTypes %}
+                        <option value="{{ os.value }}" {{ application and application.osType and application.osType.value == os.value ? 'selected' }}>{{ os.getLabel() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type de base de données *</label>
+                    <select name="db_type">
+                        <option value="">-- Aucun --</option>
+                        {% for db in dbTypes %}
+                        <option value="{{ db.value }}" {{ application and application.dbType and application.dbType.value == db.value ? 'selected' }}>{{ db.getLabel() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">URL de health check</label>
+                <input type="url" name="health_url" value="{{ application.healthUrl ?? '' }}" placeholder="https://monapp.company.local/actuator/health">
+                <div class="form-hint">Utilisée pour mesurer la latence HTTP applicative</div>
+            </div>
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" name="active" {{ application and application.isActive ? 'checked' }} style="width:16px;height:16px;accent-color:var(--color-brand)">
+                    <span class="form-label" style="margin:0">Application active (supervisée)</span>
+                </label>
+            </div>
+        </div>
+
+        {# ===== TAB: CONNEXION SSH ===== #}
+        <div id="tab-connection" class="tab-panel" style="display:none">
+            <div style="background:var(--color-info-light);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:20px;font-size:12.5px;color:#1d4ed8">
+                <i class="ti ti-info-circle"></i>
+                L'agent obstack se connecte via SSH avec authentification par clé publique.
+                Assurez-vous que la clé publique est ajoutée dans <code>~/.ssh/authorized_keys</code> de l'utilisateur sur le serveur cible.
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Adresse IP / Hostname *</label>
+                    <input type="text" name="host_address" value="{{ application.hostAddress ?? '' }}" placeholder="192.168.1.10 ou server.company.local">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Port SSH</label>
+                    <input type="number" name="ssh_port" value="{{ application.sshPort ?? 22 }}" min="1" max="65535">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Utilisateur SSH</label>
+                    <input type="text" name="ssh_user" value="{{ application.sshUser ?? 'obstack' }}" placeholder="obstack">
+                    <div class="form-hint">Doit avoir accès sudo sans mot de passe pour les commandes systemctl</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Chemin de la clé privée SSH</label>
+                    <input type="text" name="ssh_key_path" value="{{ application.sshKeyPath ?? '/var/lib/obstack/.ssh/id_rsa' }}" placeholder="/var/lib/obstack/.ssh/id_rsa">
+                </div>
+            </div>
+        </div>
+
+        {# ===== TAB: SERVICES ===== #}
+        <div id="tab-services" class="tab-panel" style="display:none">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+                {# Tomcat #}
+                <div>
+                    <div style="font-size:14px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+                        <i class="ti ti-brand-java"></i>Configuration Tomcat
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nom du service systemd</label>
+                        <input type="text" name="tomcat_service" value="{{ application.tomcatConfig['service_name'] ?? 'tomcat9' }}" placeholder="tomcat9">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Répertoire webapps</label>
+                        <input type="text" name="tomcat_webapps" value="{{ application.tomcatConfig['webapps_dir'] ?? '/opt/tomcat/webapps' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Répertoire logs</label>
+                        <input type="text" name="tomcat_logs" value="{{ application.tomcatConfig['logs_dir'] ?? '/opt/tomcat/logs' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Port HTTP</label>
+                        <input type="number" name="tomcat_port" value="{{ application.tomcatConfig['port'] ?? 8080 }}">
+                    </div>
+                </div>
+                {# BDD #}
+                <div>
+                    <div style="font-size:14px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+                        <i class="ti ti-database"></i>Configuration Base de données
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nom du service systemd</label>
+                        <input type="text" name="db_service" value="{{ application.dbConfig['service_name'] ?? '' }}" placeholder="oracle / postgresql / mysql">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hôte BDD</label>
+                        <input type="text" name="db_host" value="{{ application.dbConfig['db_host'] ?? '127.0.0.1' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Répertoire données</label>
+                        <input type="text" name="db_data_dir" value="{{ application.dbConfig['data_dir'] ?? '' }}" placeholder="/opt/oracle/oradata">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Répertoire sauvegardes</label>
+                        <input type="text" name="db_backup_dir" value="{{ application.dbConfig['backup_dir'] ?? '/var/backups/db' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rétention sauvegardes (jours)</label>
+                        <input type="number" name="db_retention" value="{{ application.dbConfig['backup_retention_days'] ?? 7 }}" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Oracle SID (si Oracle)</label>
+                        <input type="text" name="oracle_sid" value="{{ application.dbConfig['oracle_sid'] ?? 'ORCL' }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ORACLE_HOME (si Oracle)</label>
+                        <input type="text" name="oracle_home" value="{{ application.dbConfig['oracle_home'] ?? '/opt/oracle/product/19c/dbhome_1' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ===== TAB: SEUILS ===== #}
+        <div id="tab-thresholds" class="tab-panel" style="display:none">
+            <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:20px">
+                Définissez les seuils d'alerte pour chaque métrique. Les politiques d'auto-remédiation se basent sur ces valeurs.
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+                {% for item in [
+                    ['cpu', 'CPU', 75, 90, '%'],
+                    ['mem', 'Mémoire vive', 70, 85, '%'],
+                    ['disk', 'Disque', 75, 90, '%'],
+                    ['lat', 'Latence réseau', 100, 500, 'ms']
+                ] %}
+
+                {% set field = item[0] %}
+                {% set label = item[1] %}
+                {% set default_w = item[2] %}
+                {% set default_c = item[3] %}
+                {% set unit = item[4] %}
+                <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:16px">
+                    <div style="font-weight:600;margin-bottom:12px;font-size:13px">{{ label }}</div>
+                    <div class="form-group">
+                        <label class="form-label" style="color:var(--color-warn)">⚠ Avertissement ({{ unit }})</label>
+                        <input type="number" name="{{ field }}_warning"
+                               value="{{ (application and application.thresholds[field ~ '_warning'] is defined) ? application.thresholds[field ~ '_warning']|number_format(0) : default_w }}"
+                               step="{{ unit == 'ms' ? 10 : 1 }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="color:var(--color-critical)">🔴 Critique ({{ unit }})</label>
+                        <input type="number" name="{{ field }}_critical"
+                               value="{{ (application and application.thresholds[field ~ '_critical'] is defined) ? application.thresholds[field ~ '_critical']|number_format(0) : default_c }}"
+                               step="{{ unit == 'ms' ? 10 : 1 }}">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# ===== TAB: REDÉMARRAGE PLANIFIÉ ===== #}
+        <div id="tab-reboot" class="tab-panel" style="display:none">
+            <div style="background:var(--color-warn-light);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:20px;font-size:12.5px;color:#92400e">
+                <i class="ti ti-alert-triangle"></i>
+                Le redémarrage automatique du serveur interrompra tous les services. Configurez des fenêtres horaires de maintenance appropriées.
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Seuil d'uptime pour redémarrage (heures)</label>
+                    <input type="number" name="uptime_threshold"
+                           value="{{ application.uptimeRestartThresholdHours ?? '' }}"
+                           placeholder="ex: 720 (30 jours)"
+                           min="0">
+                    <div class="form-hint">Laisser vide pour désactiver le redémarrage automatique basé sur l'uptime</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Fenêtres horaires autorisées</label>
+                    <input type="text" name="uptime_schedule"
+                           value="{{ application and application.uptimeRestartSchedule is iterable ? application.uptimeRestartSchedule|join(', ') : (application.uptimeRestartSchedule ?? '') }}"
+                           placeholder="02:00, 03:00, 04:00">
+                    <div class="form-hint">Heures séparées par des virgules (format HH:MM). Le redémarrage ne sera effectué que dans ces fenêtres.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# BOUTONS D'ACTION #}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px">
+        <a href="{{ isNew ? path('app_application_index') : path('app_application_show', {id: application.id}) }}" class="btn btn-secondary">
+            <i class="ti ti-arrow-left"></i> Annuler
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="ti ti-check"></i> {{ isNew ? 'Créer l\'application' : 'Enregistrer les modifications' }}
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block javascript %}
+<script>
+function showTab(tabId) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.style.borderBottomColor = 'transparent';
+        b.style.color = 'var(--color-text-secondary)';
+    });
+    document.getElementById('tab-' + tabId).style.display = 'block';
+    const btn = document.getElementById('tab-btn-' + tabId);
+    btn.style.borderBottomColor = 'var(--color-brand)';
+    btn.style.color = 'var(--color-brand)';
+}
+showTab('general');
+</script>
+{% endblock %}

@@ -1,0 +1,182 @@
+{% extends 'base.html.twig' %}
+{% block title %}Alertes{% endblock %}
+{% block page_title %}Alertes actives{% endblock %}
+{% block page_subtitle_content %}Surveillance proactive des seuils et incidents{% endblock %}
+
+{% block topbar_actions %}
+{% if is_granted('ROLE_OPERATOR') %}
+<button onclick="resolveAll()" class="btn btn-sm btn-secondary">
+    <i class="ti ti-checks"></i>Tout résoudre
+</button>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# Statistiques #}
+<div class="grid-4 mb-4">
+    {% for row in [
+        ['critical', 'Critiques',          'ti-urgent'],
+        ['error',    'Erreurs',            'ti-circle-x'],
+        ['warning',  'Avertissements',     'ti-alert-triangle'],
+        ['info',     'Informations',       'ti-info-circle'],
+        ['ok',       'Résolues récentes',  'ti-circle-check']
+    ] %}
+    {% set sev   = row[0] %}
+    {% set label = row[1] %}
+    {% set icon  = row[2] %}
+    <div class="metric-card {{ sev in ['critical','error'] and alertsBySev[sev] is defined and alertsBySev[sev] > 0 ? 'critical' : sev == 'warning' and alertsBySev[sev] is defined and alertsBySev[sev] > 0 ? 'warn' : 'ok' }}">
+        <div class="metric-label"><i class="ti {{ icon }}"></i>{{ label }}</div>
+        <div class="metric-value">{{ alertsBySev[sev] ?? 0 }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+{# Filtres #}
+<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <a href="{{ path('alert_index') }}" class="btn btn-sm {{ not filterSeverity and not filterResolved ? 'btn-primary' : 'btn-secondary' }}">
+        Actives
+    </a>
+    <a href="{{ path('alert_index', {severity: 'critical'}) }}" class="btn btn-sm {{ filterSeverity == 'critical' ? 'btn-primary' : 'btn-secondary' }}">
+        Critiques <span class="nav-badge">{{ alertsBySev.critical ?? 0 }}</span>
+    </a>
+    <a href="{{ path('alert_index', {severity: 'warning'}) }}" class="btn btn-sm {{ filterSeverity == 'warning' ? 'btn-primary' : 'btn-secondary' }}">
+        Avertissements
+    </a>
+    <a href="{{ path('alert_index', {resolved: 1}) }}" class="btn btn-sm {{ filterResolved ? 'btn-primary' : 'btn-secondary' }}">
+        Résolues
+    </a>
+</div>
+
+<div class="card">
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Sévérité</th>
+                    <th>Titre</th>
+                    <th>Application</th>
+                    <th>Environnement</th>
+                    <th>Métrique</th>
+                    <th>Âge</th>
+                    <th>Statut</th>
+                    {% if is_granted('ROLE_OPERATOR') %}<th></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+            {% for alert in alerts %}
+            <tr id="alert-{{ alert.id }}">
+                <td>
+                    <span class="severity-badge severity-{{ alert.severity.value }}">
+                        <i class="ti ti-{{ alert.severity.value in ['critical','error'] ? 'alert-circle' : alert.severity.value == 'warning' ? 'alert-triangle' : 'info-circle' }}"></i>
+                        {{ alert.severity.getLabel() }}
+                    </span>
+                </td>
+                <td style="max-width:280px">
+                    <div style="font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        {{ alert.title }}
+                    </div>
+                    <div class="text-muted text-sm" style="margin-top:1px">
+                        {{ alert.message|slice(0, 100) }}{% if alert.message|length > 100 %}…{% endif %}
+                    </div>
+                    {% if alert.remediationLog %}
+                    <div style="margin-top:3px">
+                        <a href="{{ path('remediation_log_show', {id: alert.remediationLog.id}) }}"
+                           style="font-size:11px;color:var(--color-brand)">
+                            <i class="ti ti-robot"></i>
+                            Remédiation {{ alert.remediationLog.success ? '✓ OK' : '✗ KO' }}
+                        </a>
+                    </div>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ path('app_application_show', {id: alert.application.id}) }}"
+                       style="color:inherit;font-weight:500;font-size:13px">
+                        {{ alert.application.name }}
+                    </a>
+                    <div class="text-muted text-sm">{{ alert.application.hostAddress }}</div>
+                </td>
+                <td>
+                    <span style="font-size:11px;padding:2px 7px;border-radius:8px;font-weight:500;
+                                 background:{{ alert.application.environment.type.getBadgeColor() }}22;
+                                 color:{{ alert.application.environment.type.getBadgeColor() }}">
+                        {{ alert.application.environment.name }}
+                    </span>
+                </td>
+                <td>
+                    {% if alert.metric %}
+                    <div class="font-mono text-sm">{{ alert.metric }}</div>
+                    {% if alert.metricValue is not null %}
+                    <div style="font-size:12px">
+                        <span style="color:var(--color-critical);font-weight:700">{{ alert.metricValue|round(1) }}</span>
+                        {% if alert.threshold is not null %}
+                        <span class="text-muted"> / seuil {{ alert.threshold }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    <div style="font-size:12.5px">{{ alert.age }}</div>
+                    <div class="text-muted text-sm">{{ alert.createdAt|date('d/m H:i') }}</div>
+                </td>
+                <td>
+                    {% if alert.resolved %}
+                        <span class="severity-badge severity-ok" style="font-size:10px">
+                            ✓ Résolue {{ alert.resolvedAt ? alert.resolvedAt|date('d/m H:i') : '' }}
+                        </span>
+                    {% else %}
+                        <span class="severity-badge severity-warning" style="font-size:10px">Active</span>
+                    {% endif %}
+                </td>
+                {% if is_granted('ROLE_OPERATOR') %}
+                <td>
+                    {% if not alert.resolved %}
+                    <button onclick="resolveAlert({{ alert.id }})" class="btn btn-sm btn-secondary" title="Résoudre">
+                        <i class="ti ti-check"></i>Résoudre
+                    </button>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" style="text-align:center;padding:48px;color:var(--color-text-tertiary)">
+                    <i class="ti ti-circle-check" style="font-size:40px;display:block;margin-bottom:10px;color:var(--color-ok)"></i>
+                    <div style="font-size:16px">Aucune alerte{% if filterSeverity %} de sévérité {{ filterSeverity }}{% endif %}</div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+async function resolveAlert(id) {
+    const res  = await fetch('/alerts/' + id + '/resolve', {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}
+    });
+    const data = await res.json();
+    if (data.success) {
+        const row = document.getElementById('alert-' + id);
+        if (row) { row.style.opacity = '.4'; row.style.transition = 'opacity .3s'; }
+        setTimeout(() => location.reload(), 800);
+    } else {
+        alert(data.error || 'Erreur');
+    }
+}
+
+async function resolveAll() {
+    if (!confirm('Résoudre toutes les alertes actives de vos environnements ?')) return;
+    const res  = await fetch('/alerts/resolve-all', {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}
+    });
+    const data = await res.json();
+    if (data.success) {
+        alert(`${data.resolved} alerte(s) résolue(s).`);
+        location.reload();
+    }
+}
+{% endblock %}

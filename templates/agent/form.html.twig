@@ -1,0 +1,59 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ token.id ? 'Modifier le token' : 'Nouveau token' }}{% endblock %}
+{% block page_title %}{{ token.id ? 'Modifier le token' : 'Nouveau token d\'agent' }}{% endblock %}
+
+{% block content %}
+<form method="post">
+    <div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:28px">
+        <div class="form-group">
+            <label class="form-label">Nom du token *</label>
+            <input type="text" name="name" value="{{ token.name }}" required>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Environnement *</label>
+            <select name="environment" required>
+                {% for env in environments %}
+                <option value="{{ env.id }}" {{ token.environment.id == env.id ? 'selected' }}>{{ env.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" name="is_active" {{ token.isValid ? 'checked' }} style="width:16px;height:16px;accent-color:var(--color-brand)">
+                <span class="form-label" style="margin:0">Token actif</span>
+            </label>
+        </div>
+        {% if token.id %}
+        <div class="form-group">
+            <label class="form-label">Token</label>
+            <div style="display:flex;gap:8px;align-items:center">
+                <code style="background:var(--color-bg-secondary);padding:6px 10px;border-radius:4px;font-size:13px">{{ token.token }}</code>
+                <button type="button" onclick="copyToClipboard('{{ token.token }}')" class="btn btn-sm btn-secondary">
+                    <i class="ti ti-copy"></i> Copier
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px">
+        <a href="{{ path('app_agent_index') }}" class="btn btn-secondary">
+            <i class="ti ti-arrow-left"></i> Annuler
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="ti ti-check"></i> {{ token.id ? 'Enregistrer' : 'Créer le token' }}
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block javascript %}
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Token copié dans le presse-papiers !');
+    });
+}
+</script>
+{% endblock %}

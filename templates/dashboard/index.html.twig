@@ -1,0 +1,421 @@
+{% extends 'base.html.twig' %}
+{% block title %}Tableau de bord{% endblock %}
+{% block page_title %}
+    Tableau de bord
+    {% if currentEnv %}— {{ currentEnv.name }}{% endif %}
+{% endblock %}
+{% block page_subtitle_content %}
+    {{ company.name }}
+    {% if currentEnv %}
+    &nbsp;·&nbsp;
+    <span style="font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;
+                 background:{{ currentEnv.type.getBadgeColor() }}22;color:{{ currentEnv.type.getBadgeColor() }}">
+        {{ currentEnv.type.getLabel() }}
+    </span>
+    {% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+{# Sélecteur d'environnement #}
+{% if environments|length > 1 %}
+<div style="position:relative" id="env-switcher">
+    <button onclick="toggleEnvMenu()" class="btn btn-sm btn-secondary">
+        <i class="ti ti-layout-grid"></i>
+        {{ currentEnv ? currentEnv.name : 'Tous les envs' }}
+        <i class="ti ti-chevron-down" style="font-size:12px"></i>
+    </button>
+    <div id="env-menu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;
+         border:1px solid var(--color-border);border-radius:8px;min-width:200px;box-shadow:var(--shadow-md);z-index:100">
+        <a href="{{ path('dashboard') }}" style="display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:13px;text-decoration:none;color:var(--color-text-primary);border-bottom:1px solid var(--color-border)">
+            <i class="ti ti-layout-grid"></i>Tous les environnements
+        </a>
+        {% for env in environments %}
+        <a href="{{ path('dashboard', {env: env.id}) }}"
+           style="display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:13px;
+                  text-decoration:none;color:var(--color-text-primary);border-bottom:1px solid var(--color-border)">
+            <span style="width:10px;height:10px;border-radius:50%;background:{{ env.color }};flex-shrink:0"></span>
+            <span style="flex:1">{{ env.name }}</span>
+            <span style="font-size:10px;padding:1px 6px;border-radius:8px;
+                         background:{{ env.type.getBadgeColor() }}22;color:{{ env.type.getBadgeColor() }}">
+                {{ env.type.value|upper }}
+            </span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<button onclick="collectAll()" class="btn btn-sm btn-secondary" id="collect-btn">
+    <i class="ti ti-refresh"></i>Actualiser
+</button>
+{% endblock %}
+
+{% block content %}
+
+{# Métriques globales #}
+<div class="grid-4 mb-4">
+    {% set avgCpu = globalStats.avg_cpu %}
+    <div class="metric-card {{ avgCpu >= 90 ? 'critical' : avgCpu >= 75 ? 'warn' : 'ok' }}">
+        <div class="metric-label"><i class="ti ti-cpu"></i>CPU moyen</div>
+        <div class="metric-value">{{ avgCpu }}%</div>
+        <div class="progress"><div class="progress-fill {{ avgCpu >= 90 ? 'critical' : avgCpu >= 75 ? 'warn' : 'ok' }}" style="width:{{ avgCpu }}%"></div></div>
+        <div class="metric-sub mt-4">{{ apps|length }} serveur(s)</div>
+    </div>
+    {% set avgMem = globalStats.avg_mem %}
+    <div class="metric-card {{ avgMem >= 85 ? 'critical' : avgMem >= 70 ? 'warn' : 'ok' }}">
+        <div class="metric-label"><i class="ti ti-memory"></i>RAM moyenne</div>
+        <div class="metric-value">{{ avgMem }}%</div>
+        <div class="progress"><div class="progress-fill {{ avgMem >= 85 ? 'critical' : avgMem >= 70 ? 'warn' : 'ok' }}" style="width:{{ avgMem }}%"></div></div>
+        <div class="metric-sub mt-4">Agrégé tous hôtes</div>
+    </div>
+    {% set totalAlerts = (alertsBySev.critical ?? 0) + (alertsBySev.error ?? 0) + (alertsBySev.warning ?? 0) %}
+    <div class="metric-card {{ totalAlerts > 0 ? (alertsBySev.critical is defined ? 'critical' : 'warn') : 'ok' }}">
+        <div class="metric-label"><i class="ti ti-bell"></i>Alertes actives</div>
+        <div class="metric-value">{{ totalAlerts }}</div>
+        <div class="metric-sub mt-4">
+            {% if alertsBySev.critical ?? 0 %}{{ alertsBySev.critical }} critique(s) · {% endif %}
+            {{ alertsBySev.warning ?? 0 }} avert.
+        </div>
+    </div>
+    <div class="metric-card {{ globalStats.agents_up < globalStats.agents_total ? 'warn' : 'ok' }}">
+        <div class="metric-label"><i class="ti ti-radio"></i>Agents en ligne</div>
+        <div class="metric-value">{{ globalStats.agents_up }}/{{ globalStats.agents_total }}</div>
+        <div class="progress"><div class="progress-fill {{ globalStats.agents_up < globalStats.agents_total ? 'warn' : 'ok' }}"
+             style="width:{{ globalStats.agents_total > 0 ? (globalStats.agents_up/globalStats.agents_total*100)|round : 0 }}%"></div></div>
+        <div class="metric-sub mt-4">OneAgents actifs</div>
+    </div>
+</div>
+
+<div class="grid-2-1 mb-4">
+<div>
+{# Liens modules de monitoring (colonne gauche) #}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-chart-pie"></i>Modules de monitoring</div>
+    </div>
+    <div class="card-body">
+        {% if apps|length > 0 %}
+            {% set shown = 0 %}
+            {% for app in apps %}
+                {% if app.agentToken and app.agentToken.modules|length > 0 %}
+                    <div style="margin-bottom:14px">
+                        <div style="font-weight:600;font-size:13px;margin-bottom:6px">{{ app.name }}</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px">
+                            {% for module in app.agentToken.modules %}
+                                {% if module in ['prometheus','opentelemetry','loki','jaeger'] %}
+                                <a href="{{ path('instance_modules_' ~ module, {id: app.id}) }}" 
+                                   class="btn btn-xs btn-secondary"
+                                   style="padding:5px 9px;font-size:11px">
+                                    {{ module == 'prometheus' ? 'Prometheus' : module == 'opentelemetry' ? 'OpenTelemetry' : module == 'loki' ? 'Loki' : 'Jaeger' }}
+                                </a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% set shown = shown + 1 %}
+                    {% if shown >= 2 %}
+                        {% break %}
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+            {% if shown == 0 %}
+                <div style="font-size:12px;color:var(--color-text-tertiary)">Aucun module de monitoring configuré pour vos applications.</div>
+            {% endif %}
+        {% else %}
+            <div style="font-size:12px;color:var(--color-text-tertiary)">Aucune application disponible pour naviguer vers les modules.</div>
+        {% endif %}
+    </div>
+</div>
+
+{# Table des stacks #}
+<div class="card">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-stack-2"></i>Stacks supervisées</div>
+        {% if currentEnv and is_granted('ROLE_SUPERADMIN') %}
+        <a href="{{ path('app_application_new') }}?env={{ currentEnv.id }}" class="btn btn-sm btn-primary">
+            <i class="ti ti-plus"></i>Ajouter
+        </a>
+        {% endif %}
+    </div>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Application</th><th>Env</th><th>OS</th><th>Type machine</th>
+                    <th>Technologies</th><th>CPU</th><th>RAM</th><th>Tomcat</th><th>BDD</th>
+                    <th>Statut</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for app in apps %}
+            {% set snap = latestMetrics[app.id] ?? null %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
+                                     background:{{ app.color }}"></span>
+                        <div>
+                            <a href="{{ path('app_application_show', {id: app.id}) }}"
+                               style="font-weight:500;color:inherit;text-decoration:none">{{ app.name }}</a>
+                            <div class="text-muted text-sm">{{ app.hostAddress }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span style="font-size:10.5px;padding:2px 6px;border-radius:8px;font-weight:500;
+                                 background:{{ app.environment.type.getBadgeColor() }}22;
+                                 color:{{ app.environment.type.getBadgeColor() }}">
+                        {{ app.environment.slug }}
+                    </span>
+                </td>
+                <td><span class="os-badge badge-{{ app.osType.value }}">{{ app.osType.value|upper|slice(0,6) }}</span></td>
+                <td>
+                    <span title="{{ app.machineType.getLabel() }}" style="font-size:12px;display:flex;align-items:center;gap:4px">
+                        <i class="ti ti-{{ app.machineType.getIcon() }}"></i>
+                        {{ app.isVirtualMachine() ? 'VM' : 'Physique' }}
+                    </span>
+                </td>
+                <td>
+                    <div style="display:flex;gap:3px;flex-wrap:wrap;max-width:120px">
+                    {% for tech in app.detectedTechnologies|slice(0,3) %}
+                        <span title="{{ tech.type }}{% if tech.version %} {{ tech.version }}{% endif %}"
+                              style="font-size:9.5px;padding:1px 4px;background:var(--color-bg-secondary);border-radius:3px">
+                            {{ tech.type|upper|slice(0,5) }}
+                        </span>
+                    {% endfor %}
+                    {% if app.detectedTechnologies|length > 3 %}
+                    <span style="font-size:10px;color:var(--color-text-tertiary)">+{{ app.detectedTechnologies|length - 3 }}</span>
+                    {% endif %}
+                    </div>
+                </td>
+                <td>
+                    {% if snap and snap.cpuPercent is not null %}
+                    <span style="font-size:12px;font-weight:500;color:{{ snap.cpuPercent >= 90 ? 'var(--color-critical)' : snap.cpuPercent >= 75 ? 'var(--color-warn)' : 'var(--color-ok)' }}">
+                        {{ snap.cpuPercent }}%
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if snap and snap.memoryPercent is not null %}
+                    <span style="font-size:12px;font-weight:500;color:{{ snap.memoryPercent >= 85 ? 'var(--color-critical)' : snap.memoryPercent >= 70 ? 'var(--color-warn)' : 'var(--color-ok)' }}">
+                        {{ snap.memoryPercent }}%
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if snap %}
+                    <span class="severity-badge {{ snap.tomcatStatus == 'running' ? 'severity-ok' : 'severity-critical' }}" style="font-size:10px">
+                        {{ snap.tomcatStatus == 'running' ? '▲' : '▼' }}
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if snap %}
+                    <span class="severity-badge {{ snap.dbStatus == 'running' ? 'severity-ok' : 'severity-critical' }}" style="font-size:10px">
+                        {{ snap.dbStatus == 'running' ? '▲' : '▼' }}
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if snap %}
+                    <span class="severity-badge severity-{{ snap.severity.value }}">{{ snap.severity.getLabel() }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ path('app_application_show', {id: app.id}) }}" class="btn btn-icon btn-secondary">
+                        <i class="ti ti-eye" style="font-size:14px"></i>
+                    </a>
+                </td>
+            </tr>
+            {% if snap and snap.bottlenecks|length > 0 %}
+            <tr>
+                <td colspan="11" style="padding:4px 14px 8px;background:var(--color-critical-light)">
+                    {% for key, msg in snap.bottlenecks %}
+                    <span style="font-size:11.5px;color:var(--color-critical);margin-right:12px">
+                        <i class="ti ti-alert-triangle"></i>{{ msg }}
+                    </span>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endif %}
+            {% else %}
+            <tr>
+                <td colspan="11" style="text-align:center;padding:40px;color:var(--color-text-tertiary)">
+                    <i class="ti ti-stack-2" style="font-size:36px;display:block;margin-bottom:10px;color:var(--color-border)"></i>
+                    Installez un agent sur vos serveurs pour commencer la supervision.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+
+{# Panneau gauche #}
+<div style="display:flex;flex-direction:column;gap:14px">
+
+    {# Alertes récentes #}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-bell"></i>Alertes</div>
+            <a href="{{ path('alert_index') }}" class="btn btn-sm btn-secondary">Toutes</a>
+        </div>
+        <div style="padding:0">
+            {% for alert in activeAlerts|slice(0,6) %}
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 18px;border-bottom:1px solid var(--color-border)">
+                <div class="icon-status {{ alert.severity.value == 'warning' ? 'warn' : 'critical' }}" style="width:26px;height:26px;font-size:13px;flex-shrink:0">
+                    <i class="ti ti-{{ alert.severity.value == 'warning' ? 'alert-triangle' : 'alert-circle' }}"></i>
+                </div>
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                        {{ alert.title }}
+                    </div>
+                    <div style="font-size:11.5px;color:var(--color-text-tertiary)">
+                        {{ alert.application.name }} · {{ alert.age }}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div style="padding:24px;text-align:center;color:var(--color-text-tertiary)">
+                <i class="ti ti-circle-check" style="font-size:24px;color:var(--color-ok);display:block;margin-bottom:4px"></i>
+                Aucune alerte active
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Remédiations récentes #}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-robot"></i>Remédiations</div>
+            <a href="{{ path('remediation_index') }}" class="btn btn-sm btn-secondary">Tout voir</a>
+        </div>
+        <div style="padding:0">
+            {% for log in recentLogs|slice(0,5) %}
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--color-border);font-size:12.5px">
+                <div class="icon-status {{ log.success ? 'ok' : 'critical' }}" style="width:24px;height:24px;font-size:12px;flex-shrink:0">
+                    <i class="ti ti-{{ log.action.getIcon() }}"></i>
+                </div>
+                <div style="flex:1;min-width:0">
+                    <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ log.action.getLabel() }}</div>
+                    <div class="text-muted text-sm">{{ log.application.name }} · {{ log.executedAt|date('H:i') }}</div>
+                </div>
+                <span class="severity-badge {{ log.success ? 'severity-ok' : 'severity-critical' }}" style="font-size:10px;flex-shrink:0">
+                    {{ log.success ? '✓' : '✗' }}
+                </span>
+            </div>
+            {% else %}
+            <div style="padding:20px;text-align:center;color:var(--color-text-tertiary)">Aucune remédiation.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Kubernetes cluster summary (si dispo) #}
+    {% if currentEnv and currentEnv.kubernetesEnabled %}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-hexagon"></i>Kubernetes</div>
+            <a href="{{ path('k8s_dashboard', {id: currentEnv.id}) }}" class="btn btn-sm btn-secondary">Dashboard</a>
+        </div>
+        <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                {% for label, val in {
+                    'Nodes': currentEnv.kubernetesNodes|length,
+                    'Masters': currentEnv.kubernetesNodes|filter(n => n.isMaster)|length,
+                    'Workers': currentEnv.kubernetesNodes|filter(n => n.isWorker)|length,
+                    'Pods total': currentEnv.kubernetesNodes|reduce((carry, n) => carry + n.podCount, 0)
+                } %}
+                <div style="background:var(--color-bg-secondary);border-radius:6px;padding:10px;text-align:center">
+                    <div style="font-size:20px;font-weight:700">{{ val }}</div>
+                    <div style="font-size:10.5px;color:var(--color-text-tertiary)">{{ label }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Modules de Monitoring #}
+    {% if apps|length > 0 %}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-chart-line"></i>Monitoring</div>
+        </div>
+        <div style="padding:0">
+            {% set allModules = ['prometheus', 'opentelemetry', 'loki', 'jaeger'] %}
+            {% set moduleLabels = {
+                'prometheus': 'Prometheus',
+                'opentelemetry': 'OpenTelemetry',
+                'loki': 'Loki',
+                'jaeger': 'Jaeger'
+            } %}
+            {% set moduleIcons = {
+                'prometheus': 'chart-line',
+                'opentelemetry': 'topology-star-3',
+                'loki': 'file-text',
+                'jaeger': 'git-branch'
+            } %}
+            {% for app in apps|slice(0,3) %}
+                {% set agentToken = app.agentToken %}
+                <div style="display:flex;flex-direction:column;gap:6px;padding:11px 18px;border-bottom:1px solid var(--color-border)">
+                    <div style="font-size:12px;font-weight:600;color:var(--color-text-primary)">{{ app.name }}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px">
+                        {% if agentToken and agentToken.modules|length > 0 %}
+                            {% for module in agentToken.modules %}
+                                <a href="{{ path('instance_modules_' ~ module, {id: app.id}) }}" 
+                                   style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;font-size:11px;
+                                           background:var(--color-brand);color:white;border-radius:4px;text-decoration:none;
+                                           transition:background 0.2s">
+                                    <i class="ti ti-{{ moduleIcons[module] ?? 'chart-line' }}" style="font-size:10px"></i>
+                                    {{ moduleLabels[module] ?? module }}
+                                </a>
+                            {% endfor %}
+                        {% else %}
+                            <span style="font-size:11px;color:var(--color-text-tertiary);">
+                                <i class="ti ti-info-circle" style="font-size:11px;margin-right:2px"></i>Aucun module configuré
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+
+</div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+function toggleEnvMenu() {
+    const m = document.getElementById('env-menu');
+    m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+    if (!document.getElementById('env-switcher')?.contains(e.target)) {
+        document.getElementById('env-menu')?.style && (document.getElementById('env-menu').style.display = 'none');
+    }
+});
+
+async function collectAll() {
+    const btn = document.getElementById('collect-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>Collecte…';
+    const appIds = {{ apps|map(a => a.id)|json_encode|raw }};
+    for (const id of appIds) {
+        await fetch(`/application/${id}/collect-now`, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}}).catch(() => {});
+    }
+    setTimeout(() => location.reload(), 3000);
+}
+
+const s = document.createElement('style');
+s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(s);
+
+// SSE temps réel
+const evtSource = new EventSource('/api/dashboard/stream');
+evtSource.onmessage = () => {}; // traitement léger
+{% endblock %}

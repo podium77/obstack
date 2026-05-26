@@ -1,0 +1,440 @@
+{% extends 'base.html.twig' %}
+{% block title %}{{ application.name }}{% endblock %}
+{% block page_title %}{{ application.name }}{% endblock %}
+{% block page_subtitle_content %}
+    {{ application.hostAddress }} · {{ application.osType.getLabel() }}
+    <span class="severity-badge severity-info" style="font-size:10px;margin-left:6px">
+        <i class="ti ti-{{ application.machineType.getIcon() }}"></i>
+        {{ application.isVirtualMachine ? 'VM' : 'Machine physique' }}
+    </span>
+    <span style="font-size:11px;padding:2px 7px;border-radius:8px;margin-left:6px;
+                 background:{{ application.environment.type.getBadgeColor() }}22;color:{{ application.environment.type.getBadgeColor() }}">
+        {{ application.environment.name }}
+    </span>
+{% endblock %}
+
+{% block topbar_actions %}
+    {% if is_granted('ROLE_OPERATOR') %}
+    <button class="btn btn-sm btn-secondary" onclick="collectNow({{ application.id }})">
+        <i class="ti ti-refresh"></i>Collecter
+    </button>
+    {% endif %}
+    {% if is_granted('ROLE_SUPERADMIN') %}
+    <a href="{{ path('app_application_edit', {id: application.id}) }}" class="btn btn-sm btn-secondary">
+        <i class="ti ti-settings"></i>Configurer
+    </a>
+    {% endif %}
+    <a href="{{ path('env_show', {id: application.environment.id}) }}" class="btn btn-sm btn-secondary">
+        <i class="ti ti-arrow-left"></i>Environnement
+    </a>
+{% endblock %}
+
+{% block content %}
+
+{# Métriques actuelles #}
+{% if latestSnapshot %}
+{% set snap = latestSnapshot %}
+<div class="grid-4 mb-4">
+    {% set cpu = snap.cpuPercent ?? 0 %}
+    <div class="metric-card {{ cpu >= 90 ? 'critical' : cpu >= 75 ? 'warn' : 'ok' }}">
+        <div class="metric-label"><i class="ti ti-cpu"></i>CPU</div>
+        <div class="metric-value">{{ cpu }}%</div>
+        <div class="progress"><div class="progress-fill {{ cpu >= 90 ? 'critical' : cpu >= 75 ? 'warn' : 'ok' }}" style="width:{{ cpu }}%"></div></div>
+        <div class="metric-sub mt-4">Load: {{ snap.loadAverage|join(' / ') }}</div>
+    </div>
+    {% set mem = snap.memoryPercent ?? 0 %}
+    <div class="metric-card {{ mem >= 85 ? 'critical' : mem >= 70 ? 'warn' : 'ok' }}">
+        <div class="metric-label"><i class="ti ti-memory"></i>Mémoire</div>
+        <div class="metric-value">{{ mem }}%</div>
+        <div class="progress"><div class="progress-fill {{ mem >= 85 ? 'critical' : mem >= 70 ? 'warn' : 'ok' }}" style="width:{{ mem }}%"></div></div>
+        <div class="metric-sub mt-4">{{ snap.memoryUsedMb }} / {{ snap.memoryTotalMb }} MB</div>
+    </div>
+    {% set disk = snap.maxDiskPercent ?? 0 %}
+    <div class="metric-card {{ disk >= 90 ? 'critical' : disk >= 75 ? 'warn' : 'ok' }}">
+        <div class="metric-label"><i class="ti ti-device-sd-card"></i>Disque max</div>
+        <div class="metric-value">{{ disk }}%</div>
+        <div class="progress"><div class="progress-fill {{ disk >= 90 ? 'critical' : disk >= 75 ? 'warn' : 'ok' }}" style="width:{{ disk }}%"></div></div>
+        <div class="metric-sub mt-4">{{ snap.diskStats|length }} volume(s)</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-clock"></i>Uptime</div>
+        <div class="metric-value" style="font-size:20px">{{ snap.uptimeHours }}h</div>
+        <div class="metric-sub mt-4">{{ snap.uptimeDays }}j · {{ snap.processCount }} proc.</div>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid-2-1">
+<div style="display:flex;flex-direction:column;gap:16px">
+
+    {# Technologies détectées #}
+    {% if application.detectedTechnologies|length > 0 %}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-stack-2"></i>Technologies détectées</div>
+            <div class="text-muted text-sm">
+                Dernière détection: {{ application.lastDetectionAt ? application.lastDetectionAt|date('d/m/Y H:i') : '—' }}
+            </div>
+        </div>
+        <div class="card-body">
+            {% set byCategory = application.getTechnologiesByCategory() %}
+            {% for category, techs in byCategory %}
+            <div style="margin-bottom:16px">
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;
+                            color:var(--color-text-tertiary);margin-bottom:8px;padding-bottom:4px;
+                            border-bottom:1px solid var(--color-border)">
+                    {{ category }}
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+                {% for tech in techs %}
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;
+                            background:var(--color-bg-secondary);border-radius:var(--radius-sm);
+                            border:1px solid {{ tech.status == 'running' ? 'var(--color-ok)' : 'var(--color-border)' }}22">
+                    <i class="ti ti-{{ tech_icon(tech.type) }}"
+                       style="font-size:18px;color:{{ tech.status == 'running' ? 'var(--color-ok)' : 'var(--color-text-tertiary)' }}"></i>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                            {{ tech_label(tech.type) }}
+                        </div>
+                        {% if tech.version %}
+                        <div class="font-mono text-sm text-muted">v{{ tech.version }}</div>
+                        {% endif %}
+                    </div>
+                    {% if tech.status is defined %}
+                    <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;
+                                 background:{{ tech.status == 'running' ? 'var(--color-ok)' : 'var(--color-text-tertiary)' }}"
+                          title="{{ tech.status }}"></span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Services Tomcat / BDD #}
+    {% if latestSnapshot %}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-server-2"></i>Services</div></div>
+        <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);padding:14px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                        <span style="font-weight:600;display:flex;align-items:center;gap:6px">
+                            <i class="ti ti-brand-java"></i>Tomcat
+                        </span>
+                        <span class="severity-badge {{ latestSnapshot.tomcatStatus == 'running' ? 'severity-ok' : 'severity-critical' }}">
+                            {{ latestSnapshot.tomcatStatus == 'running' ? 'Actif' : 'Arrêté' }}
+                        </span>
+                    </div>
+                    {% if is_granted('ROLE_OPERATOR') %}
+                    <div style="display:flex;gap:5px;flex-wrap:wrap">
+                        <button onclick="triggerAction('tomcat_restart')" class="btn btn-sm btn-secondary">
+                            <i class="ti ti-refresh"></i>Restart
+                        </button>
+                        {% if latestSnapshot.tomcatStatus == 'running' %}
+                        <button onclick="triggerAction('tomcat_stop')" class="btn btn-sm btn-secondary">
+                            <i class="ti ti-player-stop"></i>Stop
+                        </button>
+                        {% else %}
+                        <button onclick="triggerAction('tomcat_start')" class="btn btn-sm btn-primary">
+                            <i class="ti ti-player-play"></i>Start
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);padding:14px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                        <span style="font-weight:600;display:flex;align-items:center;gap:6px">
+                            <i class="ti ti-database"></i>{{ application.dbType ? application.dbType.getLabel() : 'BDD' }}
+                        </span>
+                        <span class="severity-badge {{ latestSnapshot.dbStatus == 'running' ? 'severity-ok' : 'severity-critical' }}">
+                            {{ latestSnapshot.dbStatus == 'running' ? 'Actif' : 'Arrêté' }}
+                        </span>
+                    </div>
+                    {% if is_granted('ROLE_OPERATOR') %}
+                    <div style="display:flex;gap:5px;flex-wrap:wrap">
+                        <button onclick="triggerAction('db_restart')" class="btn btn-sm btn-secondary">
+                            <i class="ti ti-refresh"></i>Restart
+                        </button>
+                        <button onclick="triggerAction('db_backup')" class="btn btn-sm btn-secondary">
+                            <i class="ti ti-device-floppy"></i>Backup
+                        </button>
+                        <button onclick="triggerAction('db_repair')" class="btn btn-sm btn-secondary">
+                            <i class="ti ti-tool"></i>Réparer
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# Actions système #}
+            {% if is_granted('ROLE_OPERATOR') %}
+            <div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--color-border)">
+                <button onclick="triggerAction('memory_free')" class="btn btn-sm btn-secondary">
+                    <i class="ti ti-memory"></i>Libérer mémoire
+                </button>
+                <button onclick="triggerAction('disk_free_old_backups')" class="btn btn-sm btn-secondary">
+                    <i class="ti ti-trash"></i>Libérer disque
+                </button>
+                <button onclick="triggerAction('cache_clear')" class="btn btn-sm btn-secondary">
+                    <i class="ti ti-eraser"></i>Vider caches
+                </button>
+                {% if is_granted('ROLE_SUPERADMIN') %}
+                <button onclick="confirmReboot()" class="btn btn-sm btn-danger">
+                    <i class="ti ti-power"></i>Redémarrer serveur
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Graphiques historique #}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-chart-line"></i>Historique</div>
+            <div style="display:flex;gap:5px">
+                {% for h, l in {1:'1h',6:'6h',24:'24h',48:'2j',168:'7j'} %}
+                <button onclick="loadHistory({{ h }})" class="btn btn-sm btn-secondary history-btn" data-h="{{ h }}">{{ l }}</button>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div><canvas id="chart-cpu" height="130"></canvas></div>
+                <div><canvas id="chart-mem" height="130"></canvas></div>
+                <div><canvas id="chart-disk" height="130"></canvas></div>
+                <div><canvas id="chart-latency" height="130"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{# Panneau droite #}
+<div style="display:flex;flex-direction:column;gap:16px">
+
+    {# Infos matérielles #}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-cpu-2"></i>Matériel</div></div>
+        <div class="card-body">
+            {% set hw = application.hardwareInfo %}
+            {% set sys = application.systemInfo %}
+            {% for label, value in {
+                'Type':        machine_label(application.machineType.value),
+                'Hostname':    sys.hostname ?? application.hostAddress,
+                'OS':          sys.os_release ?? application.osType.getLabel(),
+                'Kernel':      sys.kernel_version ?? '—',
+                'Architecture':sys.architecture ?? '—',
+                'CPU':         hw.cpu_model ? hw.cpu_model|slice(0,30) ~ '…' : '—',
+                'Cœurs':       hw.cpu_cores ? hw.cpu_cores ~ ' cœurs / ' ~ (hw.cpu_threads ?? '?') ~ ' threads' : '—',
+                'RAM':         hw.total_ram_gb ? hw.total_ram_gb ~ ' GB' : '—',
+                'Hyperviseur': hw.hypervisor ?? (application.isVirtualMachine ? 'VM' : 'Bare Metal'),
+                'N° Série':    hw.serial_number ?? '—',
+                'Fabricant':   hw.manufacturer ?? '—',
+                'Timezone':    sys.timezone ?? '—',
+            } %}
+            {% if value and value != '—' %}
+            <div style="display:flex;padding:6px 0;border-bottom:1px solid var(--color-border);font-size:12.5px">
+                <span style="width:100px;color:var(--color-text-secondary);flex-shrink:0;font-size:12px">{{ label }}</span>
+                <span class="font-mono" style="font-size:12px;overflow:hidden;text-overflow:ellipsis">{{ value }}</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Latences #}
+    {% if latestSnapshot %}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-topology-star-3"></i>Latences</div></div>
+        <div class="card-body">
+            {% for name, val in {
+                'LAN':        latestSnapshot.latencies.loopback_ms ?? latestSnapshot.latencies.internal_ms,
+                'Tomcat':     latestSnapshot.latencies.tomcat_ms,
+                'BDD':        latestSnapshot.latencies.tomcat_to_db_ms ?? latestSnapshot.latencies.oracle_ms ?? latestSnapshot.latencies.postgresql_ms,
+                'Internet':   latestSnapshot.latencies.internet_ms,
+                'DNS':        latestSnapshot.latencies.dns_ms,
+            } %}
+            {% if val is not null %}
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:12.5px">
+                <span style="width:65px;color:var(--color-text-secondary)">{{ name }}</span>
+                <div class="progress" style="flex:1">
+                    <div class="progress-fill {{ val >= 500 ? 'critical' : val >= 100 ? 'warn' : 'ok' }}"
+                         style="width:{{ [val/8, 100]|min }}%"></div>
+                </div>
+                <span class="font-mono" style="width:50px;text-align:right;font-weight:500;
+                       color:{{ val >= 500 ? 'var(--color-critical)' : val >= 100 ? 'var(--color-warn)' : 'var(--color-ok)' }}">
+                    {{ val|round(1) }}ms
+                </span>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+            {# Goulots d'étranglement #}
+            {% if latestSnapshot.bottlenecks|length > 0 %}
+            <div style="margin-top:10px;padding:10px;background:var(--color-critical-light);border-radius:var(--radius-sm)">
+                <div style="font-size:12px;font-weight:600;color:var(--color-critical);margin-bottom:5px">
+                    <i class="ti ti-alert-triangle"></i> Goulots détectés
+                </div>
+                {% for key, msg in latestSnapshot.bottlenecks %}
+                <div style="font-size:12px;color:var(--color-critical);margin-bottom:2px">• {{ msg }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Disques #}
+    {% if latestSnapshot and latestSnapshot.diskStats|length > 0 %}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-device-sd-card"></i>Volumes disque</div></div>
+        <div class="card-body" style="padding:0">
+            {% for mount, stat in latestSnapshot.diskStats %}
+            <div style="padding:10px 18px;border-bottom:1px solid var(--color-border)">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                    <code style="font-size:12px">{{ mount }}</code>
+                    <span style="font-size:12px;font-weight:600;
+                           color:{{ stat.used_percent >= 90 ? 'var(--color-critical)' : stat.used_percent >= 75 ? 'var(--color-warn)' : 'var(--color-ok)' }}">
+                        {{ stat.used_percent }}%
+                    </span>
+                </div>
+                <div class="progress">
+                    <div class="progress-fill {{ stat.used_percent >= 90 ? 'critical' : stat.used_percent >= 75 ? 'warn' : 'ok' }}"
+                         style="width:{{ stat.used_percent }}%"></div>
+                </div>
+                <div class="text-muted text-sm" style="margin-top:3px">{{ stat.used }} / {{ stat.size }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+</div>
+
+{# Historique des remédiations #}
+<div class="card mt-4">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-history"></i>Remédiations récentes</div>
+    </div>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead><tr><th>Action</th><th>Déclenché par</th><th>Statut</th><th>Durée</th><th>Date</th><th></th></tr></thead>
+            <tbody>
+            {% for log in recentLogs %}
+            <tr>
+                <td><i class="ti ti-{{ log.action.getIcon() }}"></i> {{ log.action.getLabel() }}</td>
+                <td>{{ log.automatic ? 'Auto' : log.triggeredBy }}</td>
+                <td><span class="severity-badge {{ log.success ? 'severity-ok' : 'severity-critical' }}">{{ log.success ? '✓' : '✗' }}</span></td>
+                <td class="font-mono text-sm">{{ log.durationSeconds ? log.durationSeconds ~ 's' : '—' }}</td>
+                <td class="text-muted text-sm">{{ log.executedAt|date('d/m H:i') }}</td>
+                <td><a href="{{ path('remediation_log_show', {id: log.id}) }}" class="btn btn-icon btn-secondary"><i class="ti ti-eye" style="font-size:13px"></i></a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--color-text-tertiary)">Aucune remédiation.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# Modal reboot #}
+<div id="reboot-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:400px;width:90%">
+        <h3 style="color:var(--color-critical);margin-bottom:12px"><i class="ti ti-alert-triangle"></i> Confirmer le redémarrage</h3>
+        <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:16px">
+            Redémarrer <strong>{{ application.name }}</strong> ({{ application.hostAddress }}) ?
+            {% if application.uptimeRestartSchedule|length > 0 %}
+            <br>Fenêtres autorisées: {{ application.uptimeRestartSchedule|join(', ') }}
+            {% endif %}
+        </p>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button onclick="document.getElementById('reboot-modal').style.display='none'" class="btn btn-secondary">Annuler</button>
+            <button onclick="triggerAction('server_reboot', true)" class="btn btn-danger"><i class="ti ti-power"></i>Confirmer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+const APP_ID = {{ application.id }};
+const chartData = {{ chartData|json_encode|raw }};
+
+// Graphiques
+function makeChart(id, label, data, color) {
+    const ctx = document.getElementById(id);
+    if (!ctx || !data.length) return null;
+    return new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [{ label, data, borderColor: color, backgroundColor: color + '15',
+                         borderWidth: 1.5, fill: true, tension: 0.3, pointRadius: 0 }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: true, labels: { font: { size: 11 } } } },
+            scales: {
+                x: { ticks: { maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
+                y: { ticks: { font: { size: 10 } }, beginAtZero: true, max: 100 }
+            }
+        }
+    });
+}
+
+let charts = {
+    cpu:     makeChart('chart-cpu',     'CPU (%)',           chartData.cpu,     '#185FA5'),
+    mem:     makeChart('chart-mem',     'Mémoire (%)',       chartData.memory,  '#EF9F27'),
+    disk:    makeChart('chart-disk',    'Disque (%)',        chartData.disk,    '#E24B4A'),
+    latency: makeChart('chart-latency', 'Latence LAN (ms)', chartData.latency, '#639922'),
+};
+
+async function loadHistory(hours) {
+    document.querySelectorAll('.history-btn').forEach(b =>
+        b.style.fontWeight = b.dataset.h == hours ? '700' : '400'
+    );
+    const res  = await fetch(`/application/${APP_ID}/metrics-history?hours=${hours}`);
+    const data = await res.json();
+    const map  = { cpu: data.cpu, mem: data.memory, disk: data.disk, latency: data.latency };
+    Object.entries(charts).forEach(([k, c]) => {
+        if (!c) return;
+        c.data.labels = data.labels;
+        c.data.datasets[0].data = map[k];
+        c.update('none');
+    });
+}
+
+async function triggerAction(action, force = false) {
+    if (!force && ['server_reboot','db_stop','db_restore'].includes(action)) {
+        if (action === 'server_reboot') { confirmReboot(); return; }
+        if (!confirm(`Déclencher "${action}" ?`)) return;
+    }
+    const res  = await fetch('/remediation/execute', {
+        method: 'POST',
+        body: new URLSearchParams({ app_id: APP_ID, action }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+    const data = await res.json();
+    alert(data.message || data.error || 'Erreur');
+    if (data.success) setTimeout(() => location.reload(), 2000);
+    document.getElementById('reboot-modal').style.display = 'none';
+}
+
+function confirmReboot() {
+    document.getElementById('reboot-modal').style.display = 'flex';
+}
+
+async function collectNow(appId) {
+    await fetch(`/application/${appId}/collect-now`, { method: 'POST' });
+    alert('Collecte déclenchée. Actualisation dans 5s...');
+    setTimeout(() => location.reload(), 5000);
+}
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+{% block title %}Sélectionner une entreprise{% endblock %}
+{% block page_title %}Sélectionner une entreprise{% endblock %}
+{% block page_subtitle_content %}{{ companies|length }} entreprise(s) disponible(s){% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:600px;margin:0 auto">
+    <div class="card-header">
+        <div class="card-header-title">
+            <i class="ti ti-building"></i>Pour quelle entreprise souhaitez-vous agir ?
+        </div>
+    </div>
+    <div class="card-body">
+        {% if companies|length == 0 %}
+            <p style="color:var(--color-text-tertiary);text-align:center;padding:20px">
+                Aucune entreprise enregistrée.
+                <a href="{{ path('register_index') }}">Créer une instance</a>
+            </p>
+        {% else %}
+            <div style="display:flex;flex-direction:column;gap:10px">
+            {% for company in companies %}
+                <a href="{{ path(redirect, {company_id: company.id}) }}"
+                   style="display:flex;align-items:center;gap:14px;padding:14px 16px;
+                          border:1.5px solid var(--color-border);border-radius:var(--radius-md);
+                          text-decoration:none;color:inherit;transition:border-color .15s,background .15s"
+                   onmouseover="this.style.borderColor='var(--color-brand)';this.style.background='var(--color-bg-secondary)'"
+                   onmouseout="this.style.borderColor='var(--color-border)';this.style.background=''">
+                    <div style="width:40px;height:40px;border-radius:8px;background:{{ company.brandColor }}22;
+                                display:flex;align-items:center;justify-content:center;
+                                font-weight:700;font-size:16px;color:{{ company.brandColor }};flex-shrink:0">
+                        {{ company.name|slice(0,1)|upper }}
+                    </div>
+                    <div style="flex:1">
+                        <div style="font-weight:600;font-size:14px">{{ company.name }}</div>
+                        <div style="font-size:12px;color:var(--color-text-secondary)">
+                            {{ company.slug }} · {{ company.environments|length }} environnement(s)
+                        </div>
+                    </div>
+                    <div>
+                        <span class="severity-badge {{ company.isActive ? 'severity-ok' : 'severity-warning' }}">
+                            {{ company.isActive ? 'Active' : 'Inactive' }}
+                        </span>
+                    </div>
+                    <i class="ti ti-chevron-right" style="color:var(--color-text-tertiary)"></i>
+                </a>
+            {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

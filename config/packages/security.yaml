@@ -1,0 +1,68 @@
+security:
+    password_hashers:
+        App\Entity\CompanyUser:
+            algorithm: bcrypt
+            cost: 12
+
+    providers:
+        company_users:
+            entity:
+                class: App\Entity\CompanyUser
+                property: username
+
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        # API agents — authentification manuelle
+        agent_api:
+            pattern: ^/api/v1/agent/
+            stateless: true
+            security: false
+
+        # API publique
+        api_public:
+            pattern: ^/api/company/detect
+            security: false
+
+        # Firewall principal
+        main:
+            lazy: true
+            provider: company_users
+
+            custom_authenticators:
+                - App\Security\MultiTenantAuthenticator
+
+            logout:
+                path: app_logout
+                target: app_login
+
+            remember_me:
+                secret: '%kernel.secret%'
+                lifetime: 604800
+                path: /
+
+    role_hierarchy:
+        ROLE_USER: []
+        ROLE_OPERATOR: [ROLE_USER]
+        ROLE_ADMIN: [ROLE_OPERATOR]
+        ROLE_SUPERADMIN: [ROLE_ADMIN]
+
+    access_control:
+        # Pages publiques
+        - { path: ^/$, roles: PUBLIC_ACCESS }
+        - { path: ^/home$, roles: PUBLIC_ACCESS }
+        - { path: ^/login, roles: PUBLIC_ACCESS }
+        - { path: ^/register, roles: PUBLIC_ACCESS }
+        # APIs publiques
+        - { path: ^/api/v1/agent, roles: PUBLIC_ACCESS }
+        - { path: ^/api/company, roles: PUBLIC_ACCESS }
+        # Administration
+        - { path: ^/admin, roles: ROLE_SUPERADMIN }
+        # Zones protégées
+        - { path: ^/dashboard, roles: ROLE_USER }
+        - { path: ^/environments, roles: ROLE_USER }
+        - { path: ^/kubernetes, roles: ROLE_USER }
+        # Tout le reste
+        - { path: ^/, roles: ROLE_USER }

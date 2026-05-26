@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>obstack — Supervision d'infrastructure</title>
+    <style>
+        body { margin: 0; font-family: Inter, system-ui, -apple-system, sans-serif; background: radial-gradient(circle at top, #185FA5 0%, #0f2744 48%, #0b1723 100%); color: #f8fafc; }
+        .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+        .card { max-width: 1040px; width: 100%; background: rgba(15, 23, 42, .92); border: 1px solid rgba(255,255,255,.08); border-radius: 24px; box-shadow: 0 40px 120px rgba(0,0,0,.35); overflow: hidden; }
+        .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 32px; padding: 48px; }
+        .hero h1 { margin: 0 0 18px; font-size: clamp(3rem, 4vw, 4.75rem); line-height: 0.94; letter-spacing: -0.04em; }
+        .hero p { margin: 0 0 24px; max-width: 640px; color: #cbd5e1; font-size: 1.05rem; line-height: 1.75; }
+        .buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 22px; border-radius: 999px; font-weight: 600; text-decoration: none; transition: transform .16s ease, box-shadow .16s ease; }
+        .btn-primary { background: #38bdf8; color: #0f172a; }
+        .btn-secondary { background: rgba(255,255,255,.12); color: #f8fafc; border: 1px solid rgba(255,255,255,.18); }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 16px 28px rgba(8,14,24,.24); }
+        .features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 28px; }
+        .feature { padding: 22px 24px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 18px; }
+        .feature h3 { margin: 0 0 10px; font-size: 1rem; color: #f8fafc; }
+        .feature p { margin: 0; color: #cbd5e1; font-size: .94rem; line-height: 1.65; }
+        .badge { display: inline-flex; align-items: center; gap: .5rem; padding: 8px 14px; border-radius: 999px; background: rgba(56,189,248,.16); color: #e0f2fe; font-size: .92rem; margin-bottom: 24px; }
+        .footer { padding: 28px 48px 38px; background: rgba(255,255,255,.04); border-top: 1px solid rgba(255,255,255,.08); color: #94a3b8; font-size: .95rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+        .footer a { color: #e2e8f0; text-decoration: none; }
+        @media (max-width: 880px) { .hero { grid-template-columns: 1fr; } .footer { flex-direction: column; align-items: flex-start; } }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="card">
+        <div class="hero">
+            <div>
+                <div class="badge">obstack</div>
+                <h1>Supervision multi-tenant et auto-remédiation</h1>
+                <p>obstack analyse vos environnements, détecte les incidents, propose des actions de remédiation et laisse vos équipes se concentrer sur l’essentiel.</p>
+                <div class="buttons">
+                    <a class="btn btn-primary" href="{{ path('register_index') }}">Créer une instance</a>
+                    <a class="btn btn-secondary" href="{{ path('app_login') }}">Se connecter</a>
+                </div>
+                <div class="features">
+                    <div class="feature">
+                        <h3>Multi-tenant</h3>
+                        <p>Chaque entreprise dispose de son propre espace, utilisateurs et environnements isolés.</p>
+                    </div>
+                    <div class="feature">
+                        <h3>Agent natif</h3>
+                        <p>Agent léger, détection automatique et enregistrement sécurisé via token.</p>
+                    </div>
+                    <div class="feature">
+                        <h3>Alertes & remédiation</h3>
+                        <p>Dashboard de sécurité et flux de remédiation pour corriger les problèmes rapidement.</p>
+                    </div>
+                    <div class="feature">
+                        <h3>Cloud & Kubernetes</h3>
+                        <p>Support pour environnements standard, conteneurs et clusters Kubernetes.</p>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:center;">
+                <img src="https://images.unsplash.com/photo-1518773553398-650c184e0bb3?auto=format&fit=crop&w=800&q=80" alt="obstack" style="width:100%;border-radius:18px;box-shadow:0 32px 64px rgba(0,0,0,.28);">
+            </div>
+        </div>
+        <div class="footer">
+            <span>obstack — supervision d’infrastructure et auto-remédiation</span>
+            <span>Accès rapide : <a href="{{ path('app_login') }}">Connexion</a> · <a href="{{ path('register_index') }}">Inscription</a></span>
+        </div>
+    </div>
+</div>
+</body>
+</html>

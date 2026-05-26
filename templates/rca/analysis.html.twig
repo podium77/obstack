@@ -1,0 +1,106 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Analyse RCA - {{ alert.title }}{% endblock %}
+{% block page_title %}Analyse RCA{% endblock %}
+{% block page_subtitle_content %}Analyse de la cause racine pour l'alerte "{{ alert.title }}"{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px">
+    <a href="{{ path('app_rca_index') }}" class="btn btn-secondary">
+        <i class="ti ti-arrow-left"></i> Retour aux analyses
+    </a>
+</div>
+
+<div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:28px;margin-bottom:20px">
+    <h3 style="font-size:15px;font-weight:600;margin-bottom:16px">Informations sur l'alerte</h3>
+    <div class="grid-3">
+        <div class="form-group">
+            <label class="form-label">Titre</label>
+            <div>{{ alert.title }}</div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Application</label>
+            <div>{{ alert.application.name }}</div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Environnement</label>
+            <div>{{ alert.application.environment.name }}</div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Sévérité</label>
+            <div>
+                <span class="badge {% if alert.severity == 'critical' %}badge-error{% elseif alert.severity == 'warning' %}badge-warning{% else %}badge-info{% endif %}">
+                    {{ alert.severity|capitalize }}
+                </span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Date de déclenchement</label>
+            <div>{{ alert.triggeredAt|date('Y-m-d H:i:s') }}</div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Statut</label>
+            <div>{{ alert.status|capitalize }}</div>
+        </div>
+    </div>
+</div>
+
+{% if analysis %}
+<div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:28px;margin-bottom:20px">
+    <h3 style="font-size:15px;font-weight:600;margin-bottom:16px">Résultats de l'analyse RCA</h3>
+
+    <div style="margin-bottom:20px">
+        <h4 style="font-size:14px;font-weight:600;margin-bottom:8px">Cause probable</h4>
+        <div style="background:var(--color-info-light);border-radius:var(--radius-sm);padding:12px 14px;font-size:14px">
+            {{ analysis.probableCause|default('Non déterminée') }}
+        </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+        <h4 style="font-size:14px;font-weight:600;margin-bottom:8px">Détails</h4>
+        <div style="white-space:pre-wrap;font-family:monospace;font-size:13px;background:var(--color-bg-secondary);padding:16px;border-radius:var(--radius-sm)">
+{{ analysis.details|default('Aucun détail disponible.')|nl2br }}
+        </div>
+    </div>
+
+    <div style="margin-bottom:20px">
+        <h4 style="font-size:14px;font-weight:600;margin-bottom:8px">Recommandations</h4>
+        <div style="background:var(--color-success-light);border-radius:var(--radius-sm);padding:16px">
+            {% for recommendation in analysis.recommendations %}
+            <div style="margin-bottom:12px;padding-left:20px;position:relative">
+                <div style="position:absolute;left:0;top:0;width:16px;height:16px;background:var(--color-success);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:10px">✓</div>
+                <div style="margin-left:24px">{{ recommendation }}</div>
+            </div>
+            {% else %}
+            <p style="margin:0;color:var(--color-text-secondary)">Aucune recommandation disponible.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div>
+        <h4 style="font-size:14px;font-weight:600;margin-bottom:8px">Métriques au moment de l'alerte</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+            {% for metric, value in analysis.metricsAtTrigger %}
+            <div style="background:var(--color-bg-secondary);border-radius:var(--radius-sm);padding:12px">
+                <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:4px">{{ metric|replace({'_': ' '})|title }}</div>
+                <div style="font-size:16px;font-weight:600">{{ value }} {{ analysis.metricsUnits[metric] ?? '' }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div style="background:var(--color-warn-light);border-radius:var(--radius-md);padding:20px;text-align:center">
+    <p style="margin:0;display:flex;align-items:center;justify-content:center;gap:8px">
+        <i class="ti ti-loader"></i>
+        Analyse en cours...
+    </p>
+</div>
+{% endif %}
+
+<div style="display:flex;justify-content:center;margin-top:20px">
+    <a href="{{ path('app_rca_report', {id: analysis.id}) }}" class="btn btn-primary">
+        <i class="ti ti-file-report"></i> Générer le rapport complet
+    </a>
+</div>
+{% endblock %}

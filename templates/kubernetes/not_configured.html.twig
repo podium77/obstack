@@ -1,0 +1,23 @@
+{% extends 'base.html.twig' %}
+{% block title %}Kubernetes non configuré{% endblock %}
+{% block page_title %}Kubernetes{% endblock %}
+{% block page_subtitle_content %}{{ env.name }}{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;margin:60px auto;text-align:center">
+    <i class="ti ti-hexagon" style="font-size:64px;color:var(--color-border);display:block;margin-bottom:16px"></i>
+    <h2 style="font-size:22px;margin-bottom:10px">Kubernetes non configuré</h2>
+    <p style="color:var(--color-text-secondary);margin-bottom:24px">
+        La supervision Kubernetes n'est pas activée pour l'environnement <strong>{{ env.name }}</strong>.
+        Configurez l'URL de l'API Kubernetes et le kubeconfig depuis les paramètres de l'environnement.
+    </p>
+    {% if is_granted('ROLE_SUPERADMIN') %}
+    <a href="{{ path('env_edit', {id: env.id}) }}" class="btn btn-primary">
+        <i class="ti ti-settings"></i>Configurer Kubernetes
+    </a>
+    {% endif %}
+    <a href="{{ path('env_show', {id: env.id}) }}" class="btn btn-secondary" style="margin-left:8px">
+        <i class="ti ti-arrow-left"></i>Retour
+    </a>
+</div>
+{% endblock %}

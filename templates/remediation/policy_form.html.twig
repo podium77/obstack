@@ -1,0 +1,187 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ isNew ? 'Nouvelle politique' : 'Modifier ' ~ policy.name }}{% endblock %}
+{% block page_title %}{{ isNew ? 'Nouvelle politique de remédiation' : 'Modifier ' ~ policy.name }}{% endblock %}
+
+{% block content %}
+<form method="post" id="policy-form">
+    <div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:28px">
+
+        {# --- Section: Informations générales --- #}
+        <div style="margin-bottom:24px">
+            <h3 style="font-size:15px;font-weight:600;margin-bottom:16px">Informations générales</h3>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Nom de la politique *</label>
+                    <input type="text" name="name" value="{{ policy.name }}" placeholder="ex: Redémarrage Tomcat si CPU > 90%" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Environnement *</label>
+                    <select name="environment_id" required>
+                        {% for env in environments %}
+                        <option value="{{ env.id }}" {{ policy.environment.id == env.id ? 'selected' }}>{{ env.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea name="description" rows="2" placeholder="Description de cette politique...">{{ policy.description }}</textarea>
+            </div>
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" name="is_active" {{ policy.isActive ? 'checked' }} style="width:16px;height:16px;accent-color:var(--color-brand)">
+                    <span class="form-label" style="margin:0">Politique active</span>
+                </label>
+            </div>
+        </div>
+
+        {# --- Section: Déclencheur --- #}
+        <div style="margin-bottom:24px">
+            <h3 style="font-size:15px;font-weight:600;margin-bottom:16px">Condition de déclenchement</h3>
+            <div class="grid-3">
+                <div class="form-group">
+                    <label class="form-label">Métrique *</label>
+                    <select name="trigger_metric" required>
+                        {% for metric in triggerMetrics %}
+                        <option value="{{ metric.value }}" {{ policy.triggerMetric.value == metric.value ? 'selected' }}>{{ metric.getLabel() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Opérateur *</label>
+                    <select name="trigger_operator" required>
+                        <option value=">" {{ policy.triggerOperator == '>' ? 'selected' }}>Supérieur à</option>
+                        <option value=">=" {{ policy.triggerOperator == '>=' ? 'selected' }}>Supérieur ou égal à</option>
+                        <option value="<" {{ policy.triggerOperator == '<' ? 'selected' }}>Inférieur à</option>
+                        <option value="<=" {{ policy.triggerOperator == '<=' ? 'selected' }}>Inférieur ou égal à</option>
+                        <option value="==" {{ policy.triggerOperator == '==' ? 'selected' }}>Égal à</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Valeur seuil *</label>
+                    <input type="number" name="trigger_value" value="{{ policy.triggerValue }}" step="0.1" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Durée minimale (en minutes)</label>
+                <input type="number" name="trigger_duration" value="{{ policy.triggerDuration ?? 5 }}" min="1" placeholder="5">
+                <div class="form-hint">La condition doit être vraie pendant cette durée pour déclencher la remédiation.</div>
+            </div>
+        </div>
+
+        {# --- Section: Actions --- #}
+        <div style="margin-bottom:24px">
+            <h3 style="font-size:15px;font-weight:600;margin-bottom:16px">Actions de remédiation</h3>
+            <div id="actions-container" style="display:flex;flex-direction:column;gap:12px">
+                {% for action in policy.actions %}
+                <div class="action-row" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center;background:var(--color-bg-secondary);padding:12px;border-radius:var(--radius-sm)">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label" style="font-size:12px">Action *</label>
+                        <select name="actions[{{ loop.index0 }}][type]" required>
+                            {% for actionType in remActions %}
+                            <option value="{{ actionType.value }}" {{ action.type.value == actionType.value ? 'selected' }}>{{ actionType.getLabel() }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label" style="font-size:12px">Paramètres</label>
+                        <input type="text" name="actions[{{ loop.index0 }}][params]" value="{{ action.params|join(', ') }}" placeholder="ex: tomcat9, /opt/tomcat">
+                    </div>
+                    <button type="button" onclick="removeAction(this)" class="btn btn-sm btn-danger" style="padding:6px 10px">
+                        <i class="ti ti-trash"></i>
+                    </button>
+                </div>
+                {% else %}
+                <div class="action-row" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center;background:var(--color-bg-secondary);padding:12px;border-radius:var(--radius-sm)">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label" style="font-size:12px">Action *</label>
+                        <select name="actions[0][type]" required>
+                            {% for actionType in remActions %}
+                            <option value="{{ actionType.value }}">{{ actionType.getLabel() }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label" style="font-size:12px">Paramètres</label>
+                        <input type="text" name="actions[0][params]" placeholder="ex: tomcat9, /opt/tomcat">
+                    </div>
+                    <button type="button" onclick="removeAction(this)" class="btn btn-sm btn-danger" style="padding:6px 10px">
+                        <i class="ti ti-trash"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" onclick="addAction()" class="btn btn-secondary btn-sm" style="margin-top:12px">
+                <i class="ti ti-plus"></i> Ajouter une action
+            </button>
+        </div>
+
+        {# --- Section: Notifications --- #}
+        <div>
+            <h3 style="font-size:15px;font-weight:600;margin-bottom:16px">Notifications</h3>
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" name="notify_on_trigger" {{ policy.notifyOnTrigger ? 'checked' }} style="width:16px;height:16px;accent-color:var(--color-brand)">
+                    <span class="form-label" style="margin:0">Notifier lors du déclenchement</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Destinataires (emails)</label>
+                <input type="text" name="notification_emails" value="{{ policy.notificationEmails|join(', ') }}" placeholder="ex: admin@company.com, ops@company.com">
+                <div class="form-hint">Séparés par des virgules.</div>
+            </div>
+        </div>
+    </div>
+
+    {# BOUTONS D'ACTION #}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px">
+        <a href="{{ path('app_remediation_index') }}" class="btn btn-secondary">
+            <i class="ti ti-arrow-left"></i> Annuler
+        </a>
+        <button type="submit" class="btn btn-primary">
+            <i class="ti ti-check"></i> {{ isNew ? 'Créer la politique' : 'Enregistrer les modifications' }}
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block javascript %}
+<script>
+let actionIndex = {{ policy.actions|length }};
+
+function addAction() {
+    const container = document.getElementById('actions-container');
+    const html = `
+        <div class="action-row" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center;background:var(--color-bg-secondary);padding:12px;border-radius:var(--radius-sm)">
+            <div class="form-group" style="margin:0">
+                <label class="form-label" style="font-size:12px">Action *</label>
+                <select name="actions[${actionIndex}][type]" required>
+                    {% for actionType in remActions %}
+                    <option value="{{ actionType.value }}">{{ actionType.getLabel() }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin:0">
+                <label class="form-label" style="font-size:12px">Paramètres</label>
+                <input type="text" name="actions[${actionIndex}][params]" placeholder="ex: tomcat9, /opt/tomcat">
+            </div>
+            <button type="button" onclick="removeAction(this)" class="btn btn-sm btn-danger" style="padding:6px 10px">
+                <i class="ti ti-trash"></i>
+            </button>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', html);
+    actionIndex++;
+}
+
+function removeAction(button) {
+    const row = button.closest('.action-row');
+    if (document.querySelectorAll('.action-row').length > 1) {
+        row.remove();
+    } else {
+        alert('Une politique doit avoir au moins une action.');
+    }
+}
+</script>
+{% endblock %}

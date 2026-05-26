@@ -1,0 +1,177 @@
+{% extends 'base.html.twig' %}
+{% block title %}Administration{% endblock %}
+{% block page_title %}Administration{% endblock %}
+{% block page_subtitle_content %}{{ company.name }} · Superadmin{% endblock %}
+
+{% block content %}
+
+<div class="grid-4 mb-4">
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-layout-grid"></i>Environnements</div>
+        <div class="metric-value">{{ environments|length }}</div>
+        <div class="metric-sub">/ {{ company.maxEnvironments }} autorisés</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-users-group"></i>Utilisateurs</div>
+        <div class="metric-value">{{ users|length }}</div>
+        <div class="metric-sub">
+            {{ users|filter(u => u.isLdap)|length }} LDAP ·
+            {{ users|filter(u => u.isLocal and not u.isSuperAdmin)|length }} locaux
+        </div>
+    </div>
+    <div class="metric-card {{ alertCount > 0 ? 'warn' : 'ok' }}">
+        <div class="metric-label"><i class="ti ti-bell"></i>Alertes actives</div>
+        <div class="metric-value">{{ alertCount }}</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-robot"></i>Remédiations</div>
+        <div class="metric-value">{{ logCount }}</div>
+        <div class="metric-sub">exécutées au total</div>
+    </div>
+</div>
+
+<div class="grid-2">
+
+    {# Environnements #}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-layout-grid"></i>Environnements</div>
+            <a href="{{ path('env_new') }}" class="btn btn-sm btn-primary"><i class="ti ti-plus"></i>Nouveau</a>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr><th>Nom</th><th>Type</th><th>Apps</th><th>Agents</th><th>K8s</th><th></th></tr></thead>
+                <tbody>
+                {% for env in environments %}
+                <tr>
+                    <td>
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span style="width:10px;height:10px;border-radius:50%;background:{{ env.color }}"></span>
+                            <div>
+                                <span style="font-weight:500">{{ env.name }}</span>
+                                {% if env.isDefault %}<span class="severity-badge severity-info" style="font-size:9px;margin-left:4px">DÉFAUT</span>{% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span style="font-size:11px;padding:2px 7px;border-radius:8px;font-weight:500;
+                                     background:{{ env.type.getBadgeColor() }}22;color:{{ env.type.getBadgeColor() }}">
+                            {{ env.type.getLabel() }}
+                        </span>
+                    </td>
+                    <td>{{ env.applications|length }}</td>
+                    <td>
+                        {% set online = env.agentTokens|filter(t => t.isOnline)|length %}
+                        <span class="{{ online > 0 ? 'severity-badge severity-ok' : 'text-muted' }}" style="font-size:11px">
+                            {{ online }}/{{ env.agentTokens|length }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if env.kubernetesEnabled %}
+                        <span class="severity-badge severity-info" style="font-size:10px"><i class="ti ti-hexagon"></i>ON</span>
+                        {% else %}
+                        <span class="text-muted text-sm">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:4px">
+                            <a href="{{ path('env_show', {id: env.id}) }}" class="btn btn-icon btn-secondary" title="Gérer">
+                                <i class="ti ti-eye" style="font-size:14px"></i>
+                            </a>
+                            <a href="{{ path('env_edit', {id: env.id}) }}" class="btn btn-icon btn-secondary" title="Configurer">
+                                <i class="ti ti-settings" style="font-size:14px"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# Utilisateurs #}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-users-group"></i>Utilisateurs</div>
+            <a href="{{ path('admin_user_new') }}" class="btn btn-sm btn-primary"><i class="ti ti-plus"></i>Nouveau</a>
+        </div>
+        <div style="padding:0">
+            {% for user in users %}
+            <div style="display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid var(--color-border)">
+                <div class="avatar" style="width:32px;height:32px;font-size:13px">{{ user.initials }}</div>
+                <div style="flex:1;min-width:0">
+                    <div style="font-weight:500;font-size:13px">{{ user.displayName }}</div>
+                    <div class="text-muted text-sm">{{ user.username }}
+                        {% if user.isSuperAdmin() %} · <span style="color:var(--color-critical)">Superadmin</span>
+                        {% elseif user.isLdap() %} · <span style="color:var(--color-info)">LDAP</span>
+                        {% else %} · Local{% endif %}
+                    </div>
+                </div>
+                <div style="display:flex;gap:4px">
+                    {% if user.hasGlobalAccess and not user.isSuperAdmin %}
+                    <span class="severity-badge severity-warning" style="font-size:9px">Global</span>
+                    {% endif %}
+                    <span class="severity-badge {{ user.isActive ? 'severity-ok' : 'severity-warning' }}" style="font-size:10px">
+                        {{ user.isActive ? 'Actif' : 'Inactif' }}
+                    </span>
+                    <a href="{{ path('admin_user_edit', {id: user.id}) }}" class="btn btn-icon btn-secondary" style="padding:4px">
+                        <i class="ti ti-pencil" style="font-size:13px"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+{# Modules IA #}
+<div class="grid-2 mt-4">
+    <div class="card" style="border-left:4px solid {{ rcaEnabled ? 'var(--color-ok)' : 'var(--color-border)' }}">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-brain"></i>PyRCA — Analyse de Cause Racine</div>
+            <span class="severity-badge {{ rcaEnabled ? 'severity-ok' : 'severity-warning' }}">
+                {{ rcaEnabled ? 'Activé' : 'Désactivé' }}
+            </span>
+        </div>
+        <div class="card-body" style="font-size:13px;color:var(--color-text-secondary)">
+            {% if rcaEnabled %}
+            <p>Modèle: <strong>{{ company.rcaConfig.model ?? 'bayesian' }}</strong> · API: <code>{{ company.rcaConfig.api_url ?? '—' }}</code></p>
+            <p style="margin-top:6px">Analyse auto: {{ company.rcaConfig.auto_analyze ?? false ? '✓ Oui' : '✗ Non' }}</p>
+            {% else %}
+            <p>Activez PyRCA depuis les paramètres pour bénéficier de l'analyse automatique de cause racine.</p>
+            {% endif %}
+        </div>
+        <div style="padding:10px 18px;border-top:1px solid var(--color-border)">
+            <a href="{{ path('admin_settings') }}#rca" class="btn btn-sm btn-secondary">
+                <i class="ti ti-settings"></i>Configurer
+            </a>
+        </div>
+    </div>
+
+
+    <div class="card" style="border-left:4px solid {{ kgEnabled ? 'var(--color-ok)' : 'var(--color-border)' }}">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-topology-complex"></i>Knowledge Graph</div>
+            <span class="severity-badge {{ kgEnabled ? 'severity-ok' : 'severity-warning' }}">
+                {{ kgEnabled ? 'Activé' : 'Désactivé' }}
+            </span>
+        </div>
+        <div class="card-body" style="font-size:13px;color:var(--color-text-secondary)">
+            {% if kgEnabled %}
+            <p>Backend: <strong>{{ company.kgConfig.backend ?? 'neo4j' }}</strong> · URI: <code>{{ company.kgConfig.uri ?? '—' }}</code></p>
+            <p style="margin-top:6px">Base: <code>{{ company.kgConfig.database ?? 'obstack' }}</code></p>
+            {% else %}
+            <p>Activez le Knowledge Graph pour cartographier les dépendances entre services et identifier les SPOFs.</p>
+            {% endif %}
+        </div>
+        <div style="padding:10px 18px;border-top:1px solid var(--color-border)">
+            <a href="{{ path('admin_settings') }}#kg" class="btn btn-sm btn-secondary">
+                <i class="ti ti-settings"></i>Configurer
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

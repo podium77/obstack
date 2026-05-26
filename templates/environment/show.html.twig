@@ -1,0 +1,339 @@
+{% extends 'base.html.twig' %}
+{% block title %}{{ env.name }}{% endblock %}
+{% block page_title %}{{ env.name }}{% endblock %}
+{% block page_subtitle_content %}
+    {{ env.type.getLabel() }} · {{ env.company.name }}
+    {% if env.isDefault %}<span class="severity-badge severity-info" style="font-size:10px;margin-left:6px">Environnement par défaut</span>{% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+    {% if canAdmin %}
+    <a href="{{ path('env_users', {id: env.id}) }}" class="btn btn-sm btn-secondary">
+        <i class="ti ti-users"></i>Utilisateurs
+    </a>
+    <a href="{{ path('env_edit', {id: env.id}) }}" class="btn btn-sm btn-secondary">
+        <i class="ti ti-settings"></i>Configurer
+    </a>
+    {% endif %}
+    {% if env.kubernetesEnabled %}
+    <a href="{{ path('k8s_dashboard', {id: env.id}) }}" class="btn btn-sm btn-secondary">
+        <i class="ti ti-hexagon"></i>Kubernetes
+    </a>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{# Statistiques rapides #}
+<div class="grid-4 mb-4">
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-stack-2"></i>Applications</div>
+        <div class="metric-value">{{ applications|length }}</div>
+        <div class="metric-sub">stacks supervisées</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-radio"></i>Agents</div>
+        {% set onlineCount = agentTokens|filter(t => t.isOnline)|length %}
+        <div class="metric-value {{ onlineCount < agentTokens|length ? 'warn' : '' }}">{{ onlineCount }}/{{ agentTokens|length }}</div>
+        <div class="metric-sub">en ligne</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-users"></i>Utilisateurs</div>
+        <div class="metric-value">{{ env.environmentUsers|length }}</div>
+        <div class="metric-sub">accès configurés</div>
+    </div>
+    {% if k8sEnabled %}
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-hexagon"></i>Kubernetes</div>
+        <div class="metric-value">{{ env.kubernetesNodes|length }}</div>
+        <div class="metric-sub">nodes supervisés</div>
+    </div>
+    {% else %}
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-key"></i>Tokens agents</div>
+        <div class="metric-value">{{ agentTokens|length }}</div>
+        <div class="metric-sub">générés</div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="grid-2-1">
+<div style="display:flex;flex-direction:column;gap:16px">
+
+{# Applications #}
+<div class="card">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-stack-2"></i>Applications supervisées</div>
+        {% if canAdmin %}
+        <a href="{{ path('app_application_new') }}?env={{ env.id }}" class="btn btn-sm btn-primary">
+            <i class="ti ti-plus"></i>Ajouter
+        </a>
+        {% endif %}
+    </div>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Application</th><th>OS</th><th>Machine</th>
+                    <th>Technologies</th><th>Agent</th><th>Statut</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for app in applications %}
+            {% set snap = app.metricSnapshots|first ?? null %}
+            <tr>
+                <td>
+                    <div style="font-weight:500">{{ app.name }}</div>
+                    <div class="text-muted text-sm">{{ app.hostAddress }}</div>
+                </td>
+                <td><span class="os-badge badge-{{ app.osType.value }}">{{ app.osType.getLabel() }}</span></td>
+                <td>
+                    <span style="font-size:11.5px;display:flex;align-items:center;gap:4px">
+                        <i class="ti ti-{{ app.machineType.getIcon() }}" style="font-size:14px"></i>
+                        {{ app.isVirtualMachine() ? 'VM' : 'Physique' }}
+                    </span>
+                    <div class="text-muted text-sm">{{ app.machineType.getLabel()|slice(0,20) }}…</div>
+                </td>
+                <td>
+                    <div style="display:flex;gap:3px;flex-wrap:wrap;max-width:160px">
+                    {% for tech in app.detectedTechnologies|slice(0,4) %}
+                        {% set techEnum = constant('App\\Enum\\TechnologyType::' ~ tech.type|upper) ?? null %}
+                        <span title="{{ tech.type }}{% if tech.version is defined %} {{ tech.version }}{% endif %}"
+                              style="font-size:10px;padding:2px 5px;background:var(--color-bg-secondary);border-radius:3px">
+                            {{ tech.type|upper|slice(0,6) }}
+                        </span>
+                    {% endfor %}
+                    {% if app.detectedTechnologies|length > 4 %}
+                        <span style="font-size:10px;color:var(--color-text-tertiary)">+{{ app.detectedTechnologies|length - 4 }}</span>
+                    {% endif %}
+                    </div>
+                </td>
+                <td>
+                    {% if app.agentToken %}
+                        <span class="severity-badge {{ app.agentToken.isOnline ? 'severity-ok' : 'severity-warning' }}">
+                            <i class="ti ti-{{ app.agentToken.isOnline ? 'radio' : 'radio-off' }}"></i>
+                            {{ app.agentToken.isOnline ? 'En ligne' : 'Hors ligne' }}
+                        </span>
+                        {% if app.agentToken.lastSeenAt %}
+                        <div class="text-muted text-sm">{{ app.agentToken.lastSeenAt|date('H:i:s') }}</div>
+                        {% endif %}
+                    {% else %}
+                        <span class="severity-badge severity-warning">Pas d'agent</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if snap %}
+                    <span class="severity-badge severity-{{ snap.severity.value }}">{{ snap.severity.getLabel() }}</span>
+                    {% else %}
+                    <span class="text-muted text-sm">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ path('app_application_show', {id: app.id}) }}" class="btn btn-icon btn-secondary">
+                        <i class="ti ti-eye" style="font-size:14px"></i>
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align:center;padding:32px;color:var(--color-text-tertiary)">
+                    Aucune application. Installez un agent pour commencer.
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# Tokens agents #}
+{% if canAdmin %}
+<div class="card">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-key"></i>Tokens agents</div>
+        <button onclick="createToken()" class="btn btn-sm btn-primary"><i class="ti ti-plus"></i>Nouveau token</button>
+    </div>
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead><tr><th>Nom</th><th>Token</th><th>Application</th><th>Dernier contact</th><th>Statut</th><th></th></tr></thead>
+            <tbody>
+            {% for token in agentTokens %}
+            <tr>
+                <td style="font-weight:500">{{ token.name }}</td>
+                <td class="font-mono text-sm">{{ token.maskedToken }}</td>
+                <td>{{ token.application ? token.application.name : '—' }}</td>
+                <td>
+                    {% if token.lastSeenAt %}
+                        <div style="font-size:12px">{{ token.lastSeenAt|date('d/m H:i') }}</div>
+                        <div class="text-muted text-sm">{{ token.lastSeenIp }}</div>
+                    {% else %}
+                        <span class="text-muted">Jamais</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="severity-badge {{ token.isValid ? (token.isOnline ? 'severity-ok' : 'severity-warning') : 'severity-critical' }}">
+                        {{ token.isValid ? (token.isOnline ? 'En ligne' : 'Inactif') : 'Révoqué' }}
+                    </span>
+                </td>
+                <td>
+                    <div style="display:flex;gap:4px">
+                        <a href="{{ path('api_agent_install_script', {token: token.token}) }}"
+                           class="btn btn-icon btn-secondary" title="Télécharger le script">
+                            <i class="ti ti-download" style="font-size:14px"></i>
+                        </a>
+                        {% if token.isValid %}
+                        <button onclick="revokeToken({{ token.id }})" class="btn btn-icon btn-danger" title="Révoquer">
+                            <i class="ti ti-x" style="font-size:14px"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--color-text-tertiary)">Aucun token généré.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+</div>{# end left column #}
+
+{# Panneau droite #}
+<div style="display:flex;flex-direction:column;gap:16px">
+
+    {# Infos environnement #}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-info-circle"></i>Informations</div></div>
+        <div class="card-body">
+            {% for label, value in {
+                'Type': env.type.getLabel(),
+                'Slug': env.slug,
+                'Créé le': env.createdAt|date('d/m/Y'),
+                'Token maître': env.masterToken|slice(0,16) ~ '…',
+                'Kubernetes': env.kubernetesEnabled ? 'Activé (' ~ env.kubernetesNamespace ~ ')' : 'Désactivé'
+            } %}
+            <div style="display:flex;padding:8px 0;border-bottom:1px solid var(--color-border);font-size:13px">
+                <span style="width:120px;color:var(--color-text-secondary);flex-shrink:0">{{ label }}</span>
+                <span class="font-mono text-sm">{{ value }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Accès utilisateurs #}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-users"></i>Accès</div>
+            {% if canAdmin %}
+            <a href="{{ path('env_users', {id: env.id}) }}" class="btn btn-sm btn-secondary">Gérer</a>
+            {% endif %}
+        </div>
+        <div class="card-body" style="padding:0">
+            {% for eu in env.environmentUsers %}
+            {% if eu.isActive %}
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--color-border)">
+                <div class="avatar">{{ eu.user.initials }}</div>
+                <div style="flex:1">
+                    <div style="font-size:13px;font-weight:500">{{ eu.user.displayName }}</div>
+                    <div class="text-muted text-sm">{{ eu.user.username }}
+                        {% if eu.user.isLdap() %}· <span style="color:#185FA5">LDAP</span>{% endif %}
+                        {% if eu.user.isSuperAdmin() %}· <span style="color:#E24B4A">Superadmin</span>{% endif %}
+                    </div>
+                </div>
+                <span class="severity-badge severity-info" style="font-size:10px">{{ eu.role.getLabel() }}</span>
+            </div>
+            {% endif %}
+            {% else %}
+            <div style="padding:20px;text-align:center;color:var(--color-text-tertiary)">Aucun utilisateur.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Installation rapide #}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-terminal-2"></i>Installation rapide</div></div>
+        <div class="card-body">
+            {% set activeToken = agentTokens|filter(t => t.isValid)|first ?? null %}
+            {% if activeToken %}
+            <p style="font-size:12.5px;color:var(--color-text-secondary);margin-bottom:10px">Exécutez sur chaque machine à superviser :</p>
+            <div style="background:#0f1923;border-radius:8px;padding:12px;font-family:monospace;font-size:11.5px;color:#69db7c;word-break:break-all">
+curl -fsSL {{ app.request.schemeAndHttpHost }}/api/v1/agent/install/{{ activeToken.token|slice(0,40) }}… | sudo bash
+            </div>
+            {% else %}
+            <p style="font-size:13px;color:var(--color-text-tertiary)">
+                Créez un token agent pour générer le script d'installation.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+</div>{# end grid #}
+
+{# Modal création token #}
+<div id="modal-token" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:440px;width:90%">
+        <h3 style="margin-bottom:16px">Nouveau token agent</h3>
+        <div class="form-group">
+            <label class="form-label">Nom du token</label>
+            <input type="text" id="token-name" placeholder="Agent Production Serveur 1" style="width:100%;padding:9px 12px;border:1.5px solid #e2e6ea;border-radius:7px;font-size:13.5px">
+        </div>
+        <div id="token-result" style="display:none;margin-top:12px">
+            <div style="background:#0f1923;border-radius:8px;padding:12px;font-family:monospace;font-size:12px;color:#69db7c;word-break:break-all" id="new-token-val"></div>
+            <div style="margin-top:8px;font-size:12px;color:#E24B4A">⚠ Copiez ce token maintenant. Il ne sera plus affiché.</div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+            <button onclick="closeModal()" class="btn btn-secondary">Fermer</button>
+            <button onclick="submitToken()" class="btn btn-primary" id="create-token-btn"><i class="ti ti-plus"></i>Créer</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+function createToken() {
+    document.getElementById('modal-token').style.display = 'flex';
+    document.getElementById('token-result').style.display = 'none';
+    document.getElementById('token-name').value = '';
+}
+
+function closeModal() {
+    document.getElementById('modal-token').style.display = 'none';
+    location.reload();
+}
+
+async function submitToken() {
+    const name = document.getElementById('token-name').value || 'Nouveau token';
+    const btn  = document.getElementById('create-token-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader"></i>Création…';
+
+    const res = await fetch('{{ path("env_token_new", {id: env.id}) }}', {
+        method: 'POST',
+        body: new URLSearchParams({name}),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'}
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        document.getElementById('new-token-val').textContent = data.token;
+        document.getElementById('token-result').style.display = 'block';
+        btn.style.display = 'none';
+    } else {
+        alert(data.error || 'Erreur lors de la création');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-plus"></i>Créer';
+    }
+}
+
+async function revokeToken(tokenId) {
+    if (!confirm('Révoquer ce token ? L\'agent ne pourra plus envoyer de métriques.')) return;
+    const res = await fetch(`{{ path("env_token_revoke", {envId: env.id, tokenId: 0}) }}`.replace('/0', '/' + tokenId), {
+        method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}
+    });
+    if ((await res.json()).success) location.reload();
+}
+{% endblock %}

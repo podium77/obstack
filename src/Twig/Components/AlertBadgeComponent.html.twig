@@ -1,0 +1,8 @@
+<span class="badge
+    {% if severity == AlertSeverity::CRITICAL %}badge-error
+    {% elseif severity == AlertSeverity::WARNING %}badge-warning
+    {% elseif severity == AlertSeverity::INFO %}badge-info
+    {% else %}badge-secondary{% endif %}
+    {% if small %} badge-sm{% endif %}">
+    {{ severity.getLabel() }}
+</span>

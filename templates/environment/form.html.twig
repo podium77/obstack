@@ -1,0 +1,162 @@
+{% extends 'base.html.twig' %}
+{% block title %}{{ isNew ? 'Nouvel environnement' : 'Modifier ' ~ env.name }}{% endblock %}
+{% block page_title %}{{ isNew ? 'Nouvel environnement' : 'Modifier l\'environnement' }}{% endblock %}
+{% block page_subtitle_content %}{{ isNew ? 'Créer un nouvel espace de supervision' : env.name }}{% endblock %}
+
+{% block content %}
+
+{% if not isNew and envCount >= maxEnv %}
+<div style="background:var(--color-warn-light);border:1px solid var(--color-warn);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#92400e">
+    <i class="ti ti-alert-triangle"></i>
+    Limite d'environnements atteinte ({{ envCount }}/{{ maxEnv }}). Supprimez un environnement pour en créer un nouveau.
+</div>
+{% endif %}
+
+<div style="max-width:720px">
+<form method="post">
+
+{# Onglets #}
+<div style="display:flex;border-bottom:1px solid var(--color-border);background:var(--color-bg-primary);border-radius:var(--radius-md) var(--radius-md) 0 0;overflow:hidden">
+    {% for tabId, label in {'general': 'Général', 'kubernetes': 'Kubernetes', 'access': 'Accès'} %}
+    <button type="button" onclick="showTab('{{ tabId }}')" id="tab-{{ tabId }}"
+            style="padding:12px 20px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;
+                   color:var(--color-text-secondary);border-bottom:2px solid transparent">
+        {{ label }}
+    </button>
+    {% endfor %}
+</div>
+
+<div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-top:none;border-radius:0 0 var(--radius-md) var(--radius-md);padding:24px">
+
+    {# ===== ONGLET GÉNÉRAL ===== #}
+    <div id="panel-general">
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Nom <span style="color:var(--color-critical)">*</span></label>
+                <input type="text" name="name" value="{{ env.name ?? '' }}" placeholder="Production" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Identifiant (slug)</label>
+                <input type="text" name="slug" value="{{ env.slug ?? '' }}" placeholder="production"
+                       pattern="[a-z0-9\-]+" title="Lettres minuscules, chiffres et tirets uniquement">
+                <div class="form-hint">Généré automatiquement si vide. Ex: prod, dev, lab</div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea name="description" rows="2">{{ env.description ?? '' }}</textarea>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Type d'environnement</label>
+                <select name="type">
+                    {% for type in envTypes %}
+                    <option value="{{ type.value }}" {{ (env.type ?? null) == type ? 'selected' : '' }}
+                            style="color:{{ type.getBadgeColor() }}">
+                        {{ type.getLabel() }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Couleur d'identification</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input type="color" name="color" value="{{ env.color ?? '#185FA5' }}"
+                           style="width:50px;height:38px;padding:2px;border-radius:6px;border:1px solid var(--color-border)"
+                           oninput="document.getElementById('color-preview').style.background=this.value">
+                    <div id="color-preview" style="flex:1;height:38px;border-radius:6px;background:{{ env.color ?? '#185FA5' }}"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ===== ONGLET KUBERNETES ===== #}
+    <div id="panel-kubernetes" style="display:none">
+        <div style="background:var(--color-info-light);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:#1d4ed8">
+            <i class="ti ti-info-circle"></i>
+            Connectez un cluster Kubernetes pour superviser les nodes et pods depuis obstack.
+            Requis: kubeconfig avec droits de lecture sur l'API Kubernetes.
+        </div>
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:12px">
+                <input type="checkbox" name="kubernetes_enabled" id="k8s-toggle"
+                       {{ env.kubernetesEnabled ?? false ? 'checked' : '' }}
+                       onchange="toggleK8s(this.checked)"
+                       style="width:16px;height:16px;accent-color:var(--color-brand)">
+                <span class="form-label" style="margin:0">Activer la supervision Kubernetes</span>
+            </label>
+        </div>
+        <div id="k8s-config" style="{{ env.kubernetesEnabled ?? false ? '' : 'display:none' }}">
+            <div class="form-group">
+                <label class="form-label">URL de l'API Kubernetes</label>
+                <input type="url" name="kubernetes_api_url"
+                       value="{{ env.kubernetesApiUrl ?? '' }}"
+                       placeholder="https://kubernetes.company.local:6443">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Namespace par défaut</label>
+                <input type="text" name="kubernetes_namespace"
+                       value="{{ env.kubernetesNamespace ?? 'default' }}"
+                       placeholder="default">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Kubeconfig (JSON ou Base64)</label>
+                <textarea name="kubeconfig" rows="8" style="font-family:monospace;font-size:12px"
+                          placeholder='{"apiVersion":"v1","clusters":[...],...}'>{{ env.kubeconfig ?? '' }}</textarea>
+                <div class="form-hint">
+                    Copiez le contenu de votre kubeconfig converti en JSON, ou collez le token Bearer directement.
+                    Exemple: <code>{"token": "eyJhbGc..."}</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ===== ONGLET ACCÈS ===== #}
+    <div id="panel-access" style="display:none">
+        <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:16px;font-size:13px;line-height:1.8">
+            <div style="font-weight:600;margin-bottom:8px">Règles d'accès à cet environnement</div>
+            <ul style="padding-left:20px;color:var(--color-text-secondary)">
+                <li>Le <strong>superadmin</strong> a automatiquement accès à tous les environnements.</li>
+                <li>Les <strong>utilisateurs LDAP</strong> de l'entreprise peuvent être ajoutés après la création.</li>
+                <li>Un seul <strong>utilisateur local</strong> (non-LDAP) peut être ajouté par environnement.</li>
+                <li>Les droits se configurent depuis <em>Environnement → Utilisateurs</em>.</li>
+            </ul>
+        </div>
+        {% if not isNew %}
+        <div style="margin-top:16px">
+            <a href="{{ path('env_users', {id: env.id}) }}" class="btn btn-secondary">
+                <i class="ti ti-users"></i>Gérer les utilisateurs
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<div style="display:flex;justify-content:space-between;margin-top:16px">
+    <a href="{{ isNew ? path('env_index') : path('env_show', {id: env.id}) }}" class="btn btn-secondary">
+        <i class="ti ti-arrow-left"></i>Annuler
+    </a>
+    <button type="submit" class="btn btn-primary" {{ isNew and envCount >= maxEnv ? 'disabled' : '' }}>
+        <i class="ti ti-check"></i>{{ isNew ? 'Créer l\'environnement' : 'Enregistrer' }}
+    </button>
+</div>
+</form>
+</div>
+{% endblock %}
+
+{% block javascript %}
+function showTab(id) {
+    ['general','kubernetes','access'].forEach(t => {
+        document.getElementById('panel-' + t).style.display = t === id ? 'block' : 'none';
+        const btn = document.getElementById('tab-' + t);
+        btn.style.borderBottomColor = t === id ? 'var(--color-brand)' : 'transparent';
+        btn.style.color = t === id ? 'var(--color-brand)' : 'var(--color-text-secondary)';
+    });
+}
+showTab('general');
+
+function toggleK8s(enabled) {
+    document.getElementById('k8s-config').style.display = enabled ? 'block' : 'none';
+}
+{% endblock %}

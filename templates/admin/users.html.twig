@@ -1,0 +1,261 @@
+{% extends 'base.html.twig' %}
+{% block title %}Utilisateurs{% endblock %}
+{% block page_title %}Gestion des utilisateurs{% endblock %}
+{% block page_subtitle_content %}
+    {% if company %}
+        {{ company.name }} · 
+    {% else %}
+        Toutes les entreprises · 
+    {% endif %}
+    {{ users|length }} compte(s)
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{{ path('admin_user_new') }}" class="btn btn-primary">
+    <i class="ti ti-user-plus"></i>Nouvel utilisateur
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# Statistiques #}
+<div class="grid-4 mb-4">
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-crown"></i>Superadmin</div>
+        <div class="metric-value">1</div>
+        <div class="metric-sub">Accès global</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-server-2"></i>Utilisateurs LDAP</div>
+        <div class="metric-value">{{ users|filter(u => u.isLdap)|length }}</div>
+        <div class="metric-sub">Annuaire d'entreprise</div>
+    </div>
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-user"></i>Comptes locaux</div>
+        <div class="metric-value">{{ users|filter(u => u.isLocal and not u.isSuperAdmin)|length }}</div>
+        <div class="metric-sub">Max 1 par environnement</div>
+    </div>
+
+    {% if company %}
+    <div class="metric-card {{ company.hasLdap ? 'ok' : 'warn' }}">
+        <div class="metric-label"><i class="ti ti-plug"></i>LDAP</div>
+        <div class="metric-value" style="font-size:16px">
+            {{ company.hasLdap ? 'Connecté' : 'Non configuré' }}
+        </div>
+        <div class="metric-sub">
+            <a href="{{ path('admin_settings') }}#ldap" style="color:var(--color-brand)">
+                {{ company.hasLdap ? 'Configurer' : 'Connecter l\'annuaire' }}
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="metric-card ok">
+        <div class="metric-label"><i class="ti ti-plug"></i>LDAP</div>
+        <div class="metric-value" style="font-size:16px">Vue globale</div>
+    </div>
+    {% endif %}
+</div>
+
+{# Règle des utilisateurs locaux #}
+{% if company and not company.hasLdap %}
+<div style="background:var(--color-warn-light);border:1px solid var(--color-warn);border-radius:var(--radius-md);
+            padding:12px 16px;margin-bottom:16px;font-size:13px;color:#92400e;display:flex;gap:10px;align-items:flex-start">
+    <i class="ti ti-alert-triangle" style="font-size:18px;flex-shrink:0"></i>
+    <div>
+        <strong>Annuaire LDAP non configuré.</strong>
+        Sans LDAP, vous êtes limité à <strong>1 seul utilisateur local par environnement</strong> (en dehors du superadmin).
+        <a href="{{ path('admin_settings') }}#ldap" style="color:#92400e;font-weight:600">Connecter OpenLDAP →</a>
+    </div>
+</div>
+{% endif %}
+
+{# Table des utilisateurs #}
+<div class="card">
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Utilisateur</th>
+                    <th>Type</th>
+                    <th>Email</th>
+                    <th>Environnements</th>
+                    <th>Dernière connexion</th>
+                    <th>Statut</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for user in users %}
+            <tr>
+                <td>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar" style="width:34px;height:34px;font-size:13px;
+                             background:{{ user.isSuperAdmin ? '#fee2e2' : user.isLdap ? 'var(--color-info-light)' : 'var(--color-bg-tertiary)' }};
+                             color:{{ user.isSuperAdmin ? 'var(--color-critical)' : user.isLdap ? 'var(--color-info)' : 'var(--color-text-secondary)' }}">
+                            {{ user.initials }}
+                        </div>
+                        <div>
+                            <div style="font-weight:600;font-size:13px">{{ user.displayName }}</div>
+                            <div class="text-muted text-sm">{{ user.username }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    {% if user.isSuperAdmin %}
+                        <span class="severity-badge severity-critical" style="font-size:10px">
+                            <i class="ti ti-crown"></i>Superadmin
+                        </span>
+                    {% elseif user.isLdap %}
+                        <span class="severity-badge severity-info" style="font-size:10px">
+                            <i class="ti ti-server-2"></i>LDAP
+                        </span>
+                        {% if user.ldapDn %}
+                        <div class="font-mono text-sm text-muted" style="margin-top:2px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                             title="{{ user.ldapDn }}">{{ user.ldapDn|slice(0, 30) }}…</div>
+                        {% endif %}
+                    {% else %}
+                        <span class="severity-badge severity-warning" style="font-size:10px">
+                            <i class="ti ti-user"></i>Local
+                        </span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user.email %}
+                    <a href="mailto:{{ user.email }}" style="color:var(--color-brand);font-size:13px">{{ user.email }}</a>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user.isSuperAdmin or user.hasGlobalAccess %}
+                        <span class="severity-badge severity-ok" style="font-size:10px">
+                            <i class="ti ti-infinity"></i>Tous les environnements
+                        </span>
+                    {% else %}
+                        {% set activeEnvs = user.environmentAccesses|filter(ea => ea.isActive) %}
+                        {% if activeEnvs|length > 0 %}
+                            <div style="display:flex;gap:4px;flex-wrap:wrap">
+                            {% for ea in activeEnvs|slice(0,3) %}
+                                <span style="font-size:10px;padding:2px 7px;border-radius:8px;
+                                             background:{{ ea.environment.color }}22;color:{{ ea.environment.color }};
+                                             font-weight:500">
+                                    {{ ea.environment.slug }} ({{ ea.role.getLabel() }})
+                                </span>
+                            {% endfor %}
+                            {% if activeEnvs|length > 3 %}
+                                <span class="text-muted text-sm">+{{ activeEnvs|length - 3 }}</span>
+                            {% endif %}
+                            </div>
+                        {% else %}
+                            <span class="text-muted text-sm">Aucun accès</span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if user.lastLoginAt %}
+                    <div style="font-size:12.5px">{{ user.lastLoginAt|date('d/m/Y') }}</div>
+                    <div class="text-muted text-sm">{{ user.lastLoginAt|date('H:i') }}</div>
+                    {% else %}
+                    <span class="text-muted text-sm">Jamais connecté</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="severity-badge {{ user.isActive ? 'severity-ok' : 'severity-warning' }}">
+                        {{ user.isActive ? 'Actif' : 'Désactivé' }}
+                    </span>
+                </td>
+                <td>
+                    <div style="display:flex;gap:4px">
+                        <a href="{{ path('admin_user_edit', {id: user.id}) }}" class="btn btn-icon btn-secondary" title="Modifier">
+                            <i class="ti ti-pencil" style="font-size:14px"></i>
+                        </a>
+                        {% if not user.isSuperAdmin %}
+                        <button onclick="deleteUser({{ user.id }}, '{{ user.username }}')"
+                                class="btn btn-icon btn-danger" title="Supprimer">
+                            <i class="ti ti-trash" style="font-size:14px"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# Panel LDAP : importer depuis l'annuaire #}
+{% if company and company.hasLdap %}
+<div class="card mt-4">
+    <div class="card-header">
+        <div class="card-header-title"><i class="ti ti-server-2"></i>Importer depuis OpenLDAP</div>
+    </div>
+    <div class="card-body">
+        <p style="font-size:13px;color:var(--color-text-secondary);margin-bottom:14px">
+            Recherchez un utilisateur dans l'annuaire LDAP de <strong>{{ company.name }}</strong> pour l'ajouter à la plateforme.
+        </p>
+        <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="ldap-search" placeholder="Rechercher un utilisateur LDAP (nom, uid...)"
+                   style="flex:1;padding:9px 12px;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);font-size:13.5px"
+                   oninput="searchLdap(this.value)">
+            <button onclick="searchLdap(document.getElementById('ldap-search').value)" class="btn btn-secondary">
+                <i class="ti ti-search"></i>Rechercher
+            </button>
+        </div>
+        <div id="ldap-results" style="margin-top:12px"></div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block javascript %}
+async function deleteUser(userId, username) {
+    if (!confirm(`Supprimer l'utilisateur "${username}" ? Cette action est irréversible.`)) return;
+    const token = '{{ csrf_token("delete_user_0") }}'.replace('delete_user_0', 'delete_user_' + userId);
+    const res = await fetch(`/admin/users/${userId}/delete`, {
+        method: 'POST',
+        body: new URLSearchParams({'_token': token}),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+    });
+    const data = await res.json();
+    if (data.success) {
+        location.reload();
+    } else {
+        alert('Erreur: ' + (data.error || 'Impossible de supprimer'));
+    }
+}
+
+let searchTimeout;
+async function searchLdap(query) {
+    clearTimeout(searchTimeout);
+    if (query.length < 2) return;
+    searchTimeout = setTimeout(async () => {
+        const res  = await fetch(`/admin/ldap-search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        const div  = document.getElementById('ldap-results');
+        if (!data.users || data.users.length === 0) {
+            div.innerHTML = '<p class="text-muted text-sm">Aucun utilisateur trouvé.</p>';
+            return;
+        }
+        div.innerHTML = data.users.map(u => `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--color-bg-secondary);
+                        border-radius:var(--radius-md);margin-bottom:6px">
+                <div class="avatar">${u.displayName.charAt(0).toUpperCase()}</div>
+                <div style="flex:1">
+                    <div style="font-weight:500;font-size:13px">${u.displayName}</div>
+                    <div class="text-muted text-sm">${u.uid} · ${u.email || '—'} · ${u.dn}</div>
+                </div>
+                <button onclick="importLdapUser('${u.uid}', '${u.dn}', '${u.displayName}', '${u.email || ''}')"
+                        class="btn btn-sm btn-primary">
+                    <i class="ti ti-user-plus"></i>Importer
+                </button>
+            </div>
+        `).join('');
+    }, 400);
+}
+
+async function importLdapUser(uid, dn, displayName, email) {
+    window.location.href = `{{ path('admin_user_new') }}?ldap_uid=${encodeURIComponent(uid)}&ldap_dn=${encodeURIComponent(dn)}&display_name=${encodeURIComponent(displayName)}&email=${encodeURIComponent(email)}&type=ldap`;
+}
+{% endblock %}

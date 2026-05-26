@@ -1,0 +1,10 @@
+twig:
+    default_path: '%kernel.project_dir%/templates'
+    file_name_pattern: '*.twig'
+    globals:
+        app_version: '2.1.0'
+        app_name: 'obstack'
+
+when@test:
+    twig:
+        strict_variables: true

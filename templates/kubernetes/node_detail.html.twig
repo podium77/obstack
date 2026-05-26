@@ -1,0 +1,242 @@
+{% extends 'base.html.twig' %}
+{% block title %}Node {{ node.nodeName }}{% endblock %}
+{% block page_title %}Node Kubernetes — {{ node.nodeName }}{% endblock %}
+{% block page_subtitle_content %}
+    <span class="severity-badge {{ node.isMaster ? 'severity-info' : 'severity-ok' }}">
+        <i class="ti ti-{{ node.role.getIcon() }}"></i>{{ node.role.getLabel() }}
+    </span>
+    &nbsp;{{ env.name }} · {{ env.company.name }}
+{% endblock %}
+
+{% block topbar_actions %}
+<a href="{{ path('k8s_dashboard', {id: env.id}) }}" class="btn btn-sm btn-secondary">
+    <i class="ti ti-arrow-left"></i>Cluster
+</a>
+{% endblock %}
+
+{% block content %}
+
+{# Statut global du node #}
+<div class="card mb-4" style="border-left:4px solid {{ node.isReady ? 'var(--color-ok)' : 'var(--color-critical)' }}">
+    <div class="card-body">
+        <div style="display:flex;align-items:center;gap:20px">
+            <div class="icon-status {{ node.isReady ? 'ok' : 'critical' }}" style="width:52px;height:52px;font-size:26px">
+                <i class="ti ti-{{ node.isReady ? 'circle-check' : 'circle-x' }}"></i>
+            </div>
+            <div style="flex:1">
+                <div style="font-size:20px;font-weight:700;color:{{ node.isReady ? 'var(--color-ok)' : 'var(--color-critical)' }}">
+                    {{ node.status }}
+                </div>
+                <div style="color:var(--color-text-secondary);font-size:13px;margin-top:3px">
+                    {{ node.role.getLabel() }} · {{ node.nodeName }}
+                    {% if node.internalIp %} · <code>{{ node.internalIp }}</code>{% endif %}
+                </div>
+            </div>
+            <div style="display:flex;gap:10px">
+                <div style="text-align:center">
+                    <div style="font-size:22px;font-weight:700">{{ node.podCount }}</div>
+                    <div style="font-size:11px;color:var(--color-text-tertiary)">Pods / {{ node.podCapacity ?? 110 }}</div>
+                </div>
+                {% set m = node.currentMetrics %}
+                {% if m.cpu_usage_percent is not null %}
+                <div style="text-align:center">
+                    <div style="font-size:22px;font-weight:700;color:{{ m.cpu_usage_percent >= 90 ? 'var(--color-critical)' : m.cpu_usage_percent >= 75 ? 'var(--color-warn)' : 'var(--color-ok)' }}">
+                        {{ m.cpu_usage_percent }}%
+                    </div>
+                    <div style="font-size:11px;color:var(--color-text-tertiary)">CPU</div>
+                </div>
+                <div style="text-align:center">
+                    <div style="font-size:22px;font-weight:700;color:{{ m.memory_usage_percent >= 85 ? 'var(--color-critical)' : m.memory_usage_percent >= 70 ? 'var(--color-warn)' : 'var(--color-ok)' }}">
+                        {{ m.memory_usage_percent }}%
+                    </div>
+                    <div style="font-size:11px;color:var(--color-text-tertiary)">RAM</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid-2-1">
+<div style="display:flex;flex-direction:column;gap:16px">
+
+    {# Pods du node #}
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-title"><i class="ti ti-box"></i>Pods ({{ pods|length }})</div>
+            <div style="display:flex;gap:6px;font-size:12px">
+                {% set running  = pods|filter(p => p.isRunning)|length %}
+                {% set pending  = pods|filter(p => p.isPending)|length %}
+                {% set failed   = pods|filter(p => p.isFailed)|length %}
+                {% set crashloop= pods|filter(p => p.isCrashLooping)|length %}
+                <span class="severity-badge severity-ok">{{ running }} Running</span>
+                {% if pending > 0  %}<span class="severity-badge severity-warning">{{ pending }} Pending</span>{% endif %}
+                {% if failed > 0   %}<span class="severity-badge severity-critical">{{ failed }} Failed</span>{% endif %}
+                {% if crashloop > 0%}<span class="severity-badge severity-critical">{{ crashloop }} CrashLoop</span>{% endif %}
+            </div>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Pod</th><th>Namespace</th><th>Déploiement</th>
+                        <th>Phase</th><th>Containers</th><th>Restarts</th>
+                        <th>Image</th><th>IP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for pod in pods %}
+                <tr style="{{ pod.isCrashLooping ? 'background:var(--color-critical-light)' : '' }}">
+                    <td>
+                        <div style="font-weight:500;font-size:13px;word-break:break-all;max-width:180px">
+                            {{ pod.podName }}
+                        </div>
+                        {% if pod.startedAt %}
+                        <div class="text-muted text-sm">Depuis {{ pod.startedAt|date('d/m H:i') }}</div>
+                        {% endif %}
+                    </td>
+                    <td><code style="font-size:11px">{{ pod.namespace }}</code></td>
+                    <td>
+                        {% if pod.deploymentName %}
+                        <span style="font-size:12px">{{ pod.deploymentName }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        <span class="severity-badge
+                            {{ pod.isRunning ? 'severity-ok' :
+                               pod.isPending ? 'severity-warning' : 'severity-critical' }}">
+                            {{ pod.phase }}
+                        </span>
+                    </td>
+                    <td style="font-size:12px">
+                        {{ pod.readyContainerCount }}/{{ pod.containerCount }}
+                        {% for cs in pod.containerStatuses %}
+                        <span title="{{ cs.name }}: {{ cs.state }}"
+                              style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:2px;
+                                     background:{{ cs.ready ? '#639922' : '#E24B4A' }}"></span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <span style="font-size:13px;font-weight:{{ pod.restartCount > 5 ? '700' : '400' }};
+                               color:{{ pod.restartCount > 10 ? 'var(--color-critical)' :
+                                        pod.restartCount > 5  ? 'var(--color-warn)'     : 'inherit' }}">
+                            {{ pod.restartCount }}
+                        </span>
+                        {% if pod.isCrashLooping %}
+                        <span class="severity-badge severity-critical" style="font-size:9px">CrashLoop</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if pod.mainImage %}
+                        <code style="font-size:10px;word-break:break-all;max-width:150px;display:block">
+                            {{ pod.mainImage|split('/')|last|slice(0,40) }}{% if pod.mainImage|length > 40 %}…{% endif %}
+                        </code>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td><code style="font-size:11px">{{ pod.podIp ?? '—' }}</code></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--color-text-tertiary)">Aucun pod.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+{# Panneau droite #}
+<div style="display:flex;flex-direction:column;gap:16px">
+
+    {# Infos système du node #}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-info-circle"></i>Informations système</div></div>
+        <div class="card-body">
+            {% for label, value in {
+                'Hostname':     node.nodeName,
+                'IP interne':   node.internalIp ?? '—',
+                'IP externe':   node.externalIp ?? '—',
+                'OS':           node.osImage ?? '—',
+                'Architecture': node.architecture ?? '—',
+                'K8s version':  node.kubernetesVersion ?? '—',
+                'Runtime':      node.containerRuntime ?? '—',
+                'CPU':          node.cpuCapacity ?? '—',
+                'RAM':          node.memoryCapacityGb ? node.memoryCapacityGb ~ ' GB' : '—',
+                'Pods max':     node.podCapacity ?? 110,
+                '1ère détection': node.firstSeenAt|date('d/m/Y'),
+                'Dernière sync': node.lastSyncAt ? node.lastSyncAt|date('d/m/Y H:i') : '—'
+            } %}
+            <div style="display:flex;padding:7px 0;border-bottom:1px solid var(--color-border);font-size:12.5px">
+                <span style="width:120px;color:var(--color-text-secondary);flex-shrink:0">{{ label }}</span>
+                <span class="font-mono text-sm">{{ value }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Conditions du node #}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-activity"></i>Conditions</div></div>
+        <div class="card-body" style="padding:0">
+            {% for cond in node.conditions %}
+            {% set isOk = cond.status == 'True' %}
+            {% set isNegative = cond.type in ['MemoryPressure', 'DiskPressure', 'PIDPressure', 'NetworkUnavailable'] %}
+            {# Pour les conditions "pressure", True = problème #}
+            {% set statusOk = isNegative ? not isOk : isOk %}
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--color-border)">
+                <div class="icon-status {{ statusOk ? 'ok' : 'critical' }}" style="width:24px;height:24px;font-size:12px">
+                    <i class="ti ti-{{ statusOk ? 'check' : 'x' }}"></i>
+                </div>
+                <div style="flex:1">
+                    <div style="font-size:13px;font-weight:500">{{ cond.type }}</div>
+                    {% if cond.message is defined and cond.message %}
+                    <div class="text-muted text-sm">{{ cond.message|slice(0,60) }}</div>
+                    {% endif %}
+                </div>
+                <span style="font-size:11px;color:var(--color-text-tertiary)">
+                    {{ cond.status }}
+                </span>
+            </div>
+            {% else %}
+            <div style="padding:16px;text-align:center;color:var(--color-text-tertiary)">Aucune condition.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Labels #}
+    {% if node.labels %}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-tags"></i>Labels</div></div>
+        <div class="card-body">
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+                {% for key, val in node.labels %}
+                <span style="font-size:11px;padding:3px 7px;background:var(--color-bg-secondary);border-radius:4px;
+                             border:1px solid var(--color-border);font-family:monospace">
+                    {{ key }}{% if val %}: <strong>{{ val }}</strong>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Taints #}
+    {% if node.taints %}
+    <div class="card">
+        <div class="card-header"><div class="card-header-title"><i class="ti ti-ban"></i>Taints</div></div>
+        <div class="card-body">
+            {% for taint in node.taints %}
+            <div style="font-size:12px;font-family:monospace;padding:4px 0;border-bottom:1px solid var(--color-border)">
+                <span style="color:var(--color-critical)">{{ taint.key }}</span>
+                {% if taint.value is defined %}=<span>{{ taint.value }}</span>{% endif %}
+                :<span style="color:var(--color-brand)">{{ taint.effect ?? 'NoSchedule' }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+</div>
+
+{% endblock %}

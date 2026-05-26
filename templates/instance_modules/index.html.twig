@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Modules de l'instance {{ instanceId }}{% endblock %}
+
+{% block body %}
+  <h1>Modules pour l'instance {{ instanceId }}</h1>
+  <div class="grid-2">
+    {% for module in modules %}
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-title">{{ module.label }}</div>
+        </div>
+        <div class="card-body">
+          <p>Accéder aux visualisations pour {{ module.label }}.</p>
+          <a class="btn btn-primary" href="{{ path(module.route, {'id': instanceId}) }}">Ouvrir</a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

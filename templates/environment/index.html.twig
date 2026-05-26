@@ -1,0 +1,111 @@
+{% extends 'base.html.twig' %}
+{% block title %}Environnements{% endblock %}
+{% block page_title %}Mes environnements{% endblock %}
+{% block page_subtitle_content %}
+    {{ environments|length }} environnement(s) accessible(s)
+{% if user and user.company is not null %}
+    sur {{ user.company.environments|length }} au total
+{% endif %}
+{% endblock %}
+
+{% block topbar_actions %}
+    {% if is_granted('ROLE_SUPERADMIN') %}
+    <a href="{{ path('env_new') }}" class="btn btn-primary">
+        <i class="ti ti-plus"></i>Nouvel environnement
+    </a>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
+{% for env in environments %}
+    {% set role = user.getRoleInEnvironment(env) %}
+    <div class="card" style="border-top:4px solid {{ env.color }}">
+        <div class="card-header">
+            <div style="width:10px;height:10px;border-radius:50%;background:{{ env.active ? '#639922' : '#9ca3af' }};flex-shrink:0"></div>
+            <div class="card-header-title">
+                {{ env.name }}
+                {% if env.isDefault %}
+                    <span class="severity-badge severity-info" style="font-size:10px">DÉFAUT</span>
+                {% endif %}
+            </div>
+            <span style="font-size:11px;padding:3px 8px;border-radius:12px;font-weight:500;background:{{ env.type.getBadgeColor() }}22;color:{{ env.type.getBadgeColor() }}">
+                {{ env.type.getLabel() }}
+            </span>
+        </div>
+        <div class="card-body">
+            {% if env.description %}
+            <p style="font-size:12.5px;color:var(--color-text-secondary);margin-bottom:12px">{{ env.description }}</p>
+            {% endif %}
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+                <div style="text-align:center;padding:8px;background:var(--color-bg-secondary);border-radius:6px">
+                    <div style="font-size:20px;font-weight:700">{{ env.applications|length }}</div>
+                    <div style="font-size:10.5px;color:var(--color-text-tertiary)">Applications</div>
+                </div>
+                <div style="text-align:center;padding:8px;background:var(--color-bg-secondary);border-radius:6px">
+                    <div style="font-size:20px;font-weight:700">{{ env.agentTokens|length }}</div>
+                    <div style="font-size:10.5px;color:var(--color-text-tertiary)">Agents</div>
+                </div>
+                <div style="text-align:center;padding:8px;background:var(--color-bg-secondary);border-radius:6px">
+                    <div style="font-size:20px;font-weight:700">{{ env.environmentUsers|length }}</div>
+                    <div style="font-size:10.5px;color:var(--color-text-tertiary)">Utilisateurs</div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+                {% if env.kubernetesEnabled %}
+                <span class="severity-badge severity-info">
+                    <i class="ti ti-hexagon"></i>Kubernetes
+                </span>
+                {% endif %}
+                {% if role %}
+                <span class="severity-badge severity-ok">
+                    <i class="ti ti-shield-check"></i>{{ role.getLabel() }}
+                </span>
+                {% endif %}
+                {% set onlineAgents = env.agentTokens|filter(t => t.isOnline)|length %}
+                {% if onlineAgents > 0 %}
+                <span class="severity-badge severity-ok">
+                    <i class="ti ti-radio"></i>{{ onlineAgents }} agent(s) en ligne
+                </span>
+                {% endif %}
+            </div>
+
+            <div style="font-size:11.5px;color:var(--color-text-tertiary)">
+                Créé le {{ env.createdAt|date('d/m/Y') }}
+                {% if env.masterToken %}
+                · Token maître: <code style="font-size:10.5px">{{ env.masterToken|slice(0,12) }}…</code>
+                {% endif %}
+            </div>
+        </div>
+        <div style="padding:12px 18px;border-top:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center">
+            <div style="display:flex;gap:6px">
+                {% if env.kubernetesEnabled %}
+                <a href="{{ path('k8s_dashboard', {id: env.id}) }}" class="btn btn-sm btn-secondary" title="Kubernetes">
+                    <i class="ti ti-hexagon"></i>K8s
+                </a>
+                {% endif %}
+                {% if is_granted('ROLE_SUPERADMIN') %}
+                <a href="{{ path('env_users', {id: env.id}) }}" class="btn btn-sm btn-secondary" title="Utilisateurs">
+                    <i class="ti ti-users"></i>
+                </a>
+                <a href="{{ path('env_edit', {id: env.id}) }}" class="btn btn-sm btn-secondary" title="Configurer">
+                    <i class="ti ti-settings"></i>
+                </a>
+                {% endif %}
+            </div>
+            <a href="{{ path('env_show', {id: env.id}) }}" class="btn btn-sm btn-primary">
+                <i class="ti ti-eye"></i>Gérer
+            </a>
+        </div>
+    </div>
+{% else %}
+    <div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--color-text-tertiary)">
+        <i class="ti ti-layout-grid" style="font-size:48px;display:block;margin-bottom:12px;color:var(--color-border)"></i>
+        <div style="font-size:18px;margin-bottom:8px">Aucun environnement accessible</div>
+        <p style="font-size:13px">Contactez votre administrateur pour obtenir un accès.</p>
+    </div>
+{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+services:
+    app.null_entity_manager:
+        class: App\Test\NullEntityManager
+        public: true
+
+    doctrine.orm.default_entity_manager:
+        alias: app.null_entity_manager
+        public: true
+
+    doctrine.orm.entity_manager:
+        alias: doctrine.orm.default_entity_manager
+        public: true
+
+    Doctrine\ORM\EntityManagerInterface:
+        alias: doctrine.orm.default_entity_manager
+        public: true

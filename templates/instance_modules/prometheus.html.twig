@@ -1,0 +1,47 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ data.label }} - Instance {{ data.instanceId }}{% endblock %}
+
+{% block body %}
+<div style="padding: 24px;">
+  <div style="margin-bottom: 24px;">
+    <h2 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 600;">{{ data.label }} — Instance {{ data.instanceId }}</h2>
+    <p style="margin: 0; color: #6b7280; font-size: 14px;">Métriques et alertes</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px;">
+    {% for panel in data.panels %}
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; background: white; overflow: hidden;">
+        <div style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; background: #f9fafb;">
+          <h3 style="margin: 0; font-size: 14px; font-weight: 600;">{{ panel.title }}</h3>
+        </div>
+        <div style="padding: 16px;">
+          {% if panel.type == 'graph' %}
+            {% if panel.data.datapoints is empty %}
+              <div style="height: 200px; display: flex; align-items: center; justify-content: center; background: #f3f4f6; border-radius: 4px;">
+                <div style="text-align: center; color: #9ca3af;">
+                  <div style="font-size: 48px; margin-bottom: 8px;">📊</div>
+                  <div style="font-size: 12px;">Pas de données — {{ panel.unit }}</div>
+                </div>
+              </div>
+            {% else %}
+              <!-- Graphique avec données -->
+            {% endif %}
+          {% elseif panel.type == 'stat' %}
+            <div style="font-size: 32px; font-weight: 700; color: {{ panel.status == 'ok' ? '#059669' : '#dc2626' }};">{{ panel.value }}</div>
+            <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">{{ panel.unit ?? '' }}</div>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if data.panels is empty %}
+    <div style="text-align: center; padding: 60px 20px; color: #6b7280;">
+      <div style="font-size: 48px; margin-bottom: 16px;">⚙️</div>
+      <div style="font-size: 16px; font-weight: 500;">Aucun panneau configuré</div>
+      <div style="font-size: 13px; margin-top: 4px;">Attendez la récupération des métriques Prometheus.</div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
