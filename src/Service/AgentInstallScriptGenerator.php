@@ -20,6 +20,9 @@ class AgentInstallScriptGenerator
     public function __construct(
         private readonly string $platformBaseUrl,
         private readonly string $platformApiVersion = 'v1',
+        private readonly string $agentArtifactBaseUrl = '',
+        private readonly string $agentPubkeyUrl = '',
+        private readonly string $agentPubkeyFingerprint = '',
     ) {}
 
     public function generateForToken(AgentToken $token): string
@@ -45,6 +48,10 @@ class AgentInstallScriptGenerator
         $modulesLabel  = $modules ? addslashes(implode(', ', $modules)) : 'aucun';
         $modulesJson   = json_encode($modules, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
+        if ($this->agentPubkeyUrl && $this->agentPubkeyFingerprint) {
+            $this->validatePublicKeyUrl($this->agentPubkeyUrl, $this->agentPubkeyFingerprint);
+        }
+
         $script = <<<BASH
 #!/usr/bin/env bash
 # =============================================================================
@@ -56,6 +63,7 @@ class AgentInstallScriptGenerator
 # Token : {$token->getMaskedToken()}
 # =============================================================================
 # Usage: curl -fsSL <url>/agent/install/{$tokenValue} | sudo bash
+#        curl -fsSL <url>/agent/install/{$tokenValue} | bash -- --install-dir /home/user/obsagent
 # =============================================================================
 set -euo pipefail
 
@@ -70,6 +78,30 @@ OBS_USER="obstack-agent"
 OBS_VERSION="2.1.0"
 OBS_MODULES="{$modulesList}"
 OBS_MODULES_JSON='{$modulesJson}'
+OBS_ARTIFACT_URL="{$this->agentArtifactBaseUrl}"
+OBS_SIG_URL="{$this->agentArtifactBaseUrl}/obsagent.tar.gz.asc"
+OBS_PUBKEY_URL="{$this->agentPubkeyUrl}"
+OBS_PUBKEY_FILE=""
+OBS_PUBKEY_FINGERPRINT="{$this->agentPubkeyFingerprint}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --install-dir) OBS_AGENT_DIR="$2"; shift 2;;
+        --user) OBS_USER="$2"; shift 2;;
+        --artifact-url) OBS_ARTIFACT_URL="$2"; shift 2;;
+        --sig-url) OBS_SIG_URL="$2"; shift 2;;
+        --pubkey-url) OBS_PUBKEY_URL="$2"; shift 2;;
+        --pubkey-file) OBS_PUBKEY_FILE="$2"; shift 2;;
+        --pubkey-fingerprint) OBS_PUBKEY_FINGERPRINT="$2"; shift 2;;
+        --help)
+            cat <<'HELP'
+Usage: install.sh [--install-dir <path>] [--user <user>] [--artifact-url <url>] [--sig-url <url>] [--pubkey-url <url>] [--pubkey-file <path>] [--pubkey-fingerprint <fingerprint>]
+HELP
+            exit 0
+            ;;
+        *) error "Argument inconnu: $1";;
+    esac
+done
 
 # ===== COULEURS =====
 RED='\\033[0;31m'; GREEN='\\033[0;32m'; YELLOW='\\033[1;33m'; BLUE='\\033[0;34m'; NC='\\033[0m'
@@ -656,6 +688,94 @@ BASH;
 
         $token->setInstallScript($script);
         return $script;
+    }
+
+    private function validatePublicKeyUrl(string $url, string $expectedFingerprint): void
+    {
+        $publicKeyData = $this->downloadPublicKey($url);
+        $fingerprint = $this->getPublicKeyFingerprint($publicKeyData);
+
+        if (!$fingerprint) {
+            throw new \RuntimeException(sprintf('Impossible de calculer le fingerprint de la clé publique téléchargée depuis %s.', $url));
+        }
+
+        $normalizedExpected = $this->normalizeFingerprint($expectedFingerprint);
+        $normalizedActual   = $this->normalizeFingerprint($fingerprint);
+
+        if ($normalizedExpected !== $normalizedActual) {
+            throw new \RuntimeException(sprintf('Fingerprint de clé publique incompatible : attendu %s, obtenu %s.', $normalizedExpected, $normalizedActual));
+        }
+    }
+
+    private function normalizeFingerprint(string $fingerprint): string
+    {
+        $normalized = strtoupper(preg_replace('/[^A-F0-9]/i', '', $fingerprint));
+
+        if ($normalized === '') {
+            throw new \RuntimeException('Fingerprint attendu vide ou invalide.');
+        }
+
+        if (!ctype_xdigit($normalized)) {
+            throw new \RuntimeException(sprintf('Fingerprint attendu contient des caractères invalides : %s.', $fingerprint));
+        }
+
+        $length = strlen($normalized);
+        if (!in_array($length, [32, 40, 64], true)) {
+            throw new \RuntimeException(sprintf('Fingerprint attendu a une longueur invalide (%d caractères) : %s.', $length, $fingerprint));
+        }
+
+        return $normalized;
+    }
+
+    private function downloadPublicKey(string $url): string
+    {
+        if (ini_get('allow_url_fopen')) {
+            $data = @file_get_contents($url);
+            if ($data !== false) {
+                return $data;
+            }
+        }
+
+        if ($this->isCommandAvailable('curl')) {
+            $data = shell_exec(sprintf('curl -fsSL %s', escapeshellarg($url)));
+            if (is_string($data) && $data !== '') {
+                return $data;
+            }
+        }
+
+        throw new \RuntimeException(sprintf('Impossible de télécharger la clé publique depuis %s.', $url));
+    }
+
+    private function getPublicKeyFingerprint(string $publicKeyData): ?string
+    {
+        if (!$this->isCommandAvailable('gpg')) {
+            throw new \RuntimeException('gpg est requis pour vérifier le fingerprint de la clé publique.');
+        }
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'obstack_pubkey_');
+        if ($tmpFile === false) {
+            throw new \RuntimeException('Impossible de créer un fichier temporaire pour la clé publique.');
+        }
+
+        file_put_contents($tmpFile, $publicKeyData);
+        $command = sprintf('gpg --batch --with-colons --import-options show-only --import %s 2>/dev/null', escapeshellarg($tmpFile));
+        $output = shell_exec($command);
+        @unlink($tmpFile);
+
+        if (!is_string($output) || $output === '') {
+            return null;
+        }
+
+        if (preg_match('/^fpr:[^:]*:([0-9A-Fa-f]{32,})/m', $output, $matches)) {
+            return strtoupper($matches[1]);
+        }
+
+        return null;
+    }
+
+    private function isCommandAvailable(string $command): bool
+    {
+        return is_string(shell_exec(sprintf('command -v %s 2>/dev/null', escapeshellarg($command)))) && trim(shell_exec(sprintf('command -v %s 2>/dev/null', escapeshellarg($command)))) !== '';
     }
 
     private function now(): string

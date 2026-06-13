@@ -8,6 +8,7 @@ use App\Enum\MachineType;
 use App\Enum\OsType;
 use App\Repository\AgentTokenRepository;
 use App\Repository\ApplicationRepository;
+use App\Service\AgentInstallScriptGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,6 +29,7 @@ class AgentApiController extends AbstractController
         private readonly ApplicationRepository $appRepo,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface        $logger,
+        private readonly AgentInstallScriptGenerator $scriptGenerator,
     ) {}
 
     /**
@@ -45,9 +47,16 @@ class AgentApiController extends AbstractController
             ]);
         }
 
-        $script   = $agentToken->getInstallScript() ?? "# Script non généré.\n";
-        $env      = $agentToken->getEnvironment();
-        $company  = $env->getCompany();
+        $script = $agentToken->getInstallScript();
+
+        if (!$script) {
+            $script = $this->scriptGenerator->generateForToken($agentToken);
+            $agentToken->setInstallScript($script);
+            $this->em->persist($agentToken);
+            $this->em->flush();
+        }
+        $env     = $agentToken->getEnvironment();
+        $company = $env->getCompany();
         $filename = "install-obs-{$company->getSlug()}-{$env->getSlug()}.sh";
 
         return new Response($script, 200, [

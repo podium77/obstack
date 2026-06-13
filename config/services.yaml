@@ -4,6 +4,9 @@ parameters:
     app.mail_admin: '%env(MAIL_ADMIN)%'
     app.slack_webhook_url: '%env(default::WEBHOOK_SLACK_URL)%'
     app.teams_webhook_url: '%env(default::WEBHOOK_TEAMS_URL)%'
+    app.obs_agent_artifact_base_url: '%env(default::OBS_AGENT_ARTIFACT_BASE_URL)%'
+    app.obs_agent_pubkey_url: '%env(default::OBS_AGENT_PUBKEY_URL)%'
+    app.obs_agent_pubkey_fingerprint: '%env(default::OBS_AGENT_PUBKEY_FINGERPRINT)%'
 
 services:
     _defaults:
@@ -27,6 +30,9 @@ services:
         arguments:
             $platformBaseUrl: '%app.platform_base_url%'
             $platformApiVersion: 'v1'
+            $agentArtifactBaseUrl: '%app.obs_agent_artifact_base_url%'
+            $agentPubkeyUrl: '%app.obs_agent_pubkey_url%'
+            $agentPubkeyFingerprint: '%app.obs_agent_pubkey_fingerprint%'
 
     # Service de notifications
     App\Service\NotificationService:

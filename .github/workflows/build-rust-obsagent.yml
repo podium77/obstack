@@ -1,0 +1,101 @@
+name: Build obsagent (Rust)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: Build and package obsagent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Add target
+        run: rustup target add x86_64-unknown-linux-gnu || true
+
+      - name: Build release
+        run: |
+          cd agent/rust || exit 0
+          cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Package binary
+        run: |
+          ART=artifact
+          mkdir -p $ART
+          if [ -f agent/rust/target/x86_64-unknown-linux-gnu/release/obsagent ]; then
+            cp agent/rust/target/x86_64-unknown-linux-gnu/release/obsagent $ART/obsagent
+          elif [ -f agent/rust/target/release/obsagent ]; then
+            cp agent/rust/target/release/obsagent $ART/obsagent
+          else
+            echo "Binary not found"; exit 1
+          fi
+          strip $ART/obsagent || true
+          tar -czf obsagent-${{ github.run_id }}-x86_64.tar.gz -C $ART obsagent
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: obsagent
+          path: obsagent-*.tar.gz
+
+      - name: Import GPG private key (if provided)
+        if: secrets.GPG_PRIVATE_KEY != ''
+        run: |
+          echo "$GPG_PRIVATE_KEY" > private.key
+          gpg --batch --import private.key
+          rm -f private.key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+
+      - name: Create detached ASCII signature (if GPG key present)
+        if: secrets.GPG_PRIVATE_KEY != '' && secrets.GPG_PASSPHRASE != ''
+        run: |
+          AR=$(ls obsagent-*.tar.gz | head -n1)
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" --detach-sign --armor "$AR"
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Create changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        id: changelog
+        run: |
+          git fetch --prune --unshallow || true
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          if [ -n "$LAST_TAG" ]; then
+            git log --pretty=format:"- %s (%h)" "$LAST_TAG"..HEAD > changelog.txt || true
+          else
+            git log --pretty=format:"- %s (%h)" -n 50 > changelog.txt || true
+          fi
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          cat changelog.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.CHANGELOG }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release assets (signed if present)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            obsagent-*.tar.gz
+            obsagent-*.tar.gz.asc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
