@@ -20,9 +20,9 @@ class AgentInstallScriptGenerator
     public function __construct(
         private readonly string $platformBaseUrl,
         private readonly string $platformApiVersion = 'v1',
-        private readonly string $agentArtifactBaseUrl = '',
-        private readonly string $agentPubkeyUrl = '',
-        private readonly string $agentPubkeyFingerprint = '',
+        private readonly ?string $agentArtifactBaseUrl = null,
+        private readonly ?string $agentPubkeyUrl = null,
+        private readonly ?string $agentPubkeyFingerprint = null,
     ) {}
 
     public function generateForToken(AgentToken $token): string
