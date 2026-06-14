@@ -13,42 +13,42 @@ d'intelligence artificielle (**PyRCA** + **Knowledge Graph**).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    obstack v1 (Debian 12)                   │
-│                                                                   │
+│                    obstack v1 (Debian 12)                       │
+│                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │                   COUCHE PRÉSENTATION                     │   │
+│  │                   COUCHE PRÉSENTATION                    │   │
 │  │  Nginx → PHP-FPM 8.3 → Symfony 8 → Twig                  │   │
 │  └──────────────────────────────────────────────────────────┘   │
-│                                                                   │
-│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
-│  │ PostgreSQL  │  │     Redis    │  │      Supervisor        │ │
-│  │ (metadata)  │  │ (queues/cache│  │  ├─ worker-async (x2)  │ │
-│  └─────────────┘  └──────────────┘  │  ├─ worker-remediation │ │
-│                                      │  ├─ worker-metrics (x2)│ │
-│  ┌─────────────┐  ┌──────────────┐  │  └─ scheduler          │ │
-│  │    Neo4j    │  │  PyRCA API   │  └────────────────────────┘ │
+│                                                                 │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────────────┐  │
+│  │ PostgreSQL  │  │     Redis    │  │      Supervisor        │  │
+│  │ (metadata)  │  │ (queues/cache│  │  ├─ worker-async (x2)  │  │
+│  └─────────────┘  └──────────────┘  │  ├─ worker-remediation │  │
+│                                     │  ├─ worker-metrics (x2)│  │
+│  ┌─────────────┐  ┌──────────────┐  │  └─ scheduler          │  │
+│  │    Neo4j    │  │  PyRCA API   │  └────────────────────────┘  │
 │  │(Knowledge   │  │ (RCA Python) │                              │
 │  │   Graph)    │  └──────────────┘                              │
-│  └─────────────┘                                                 │
+│  └─────────────┘                                                │
 └─────────────────────────────────────────────────────────────────┘
          │
          │ SSH (clé publique) + API REST (token)
          ▼
 ┌────────────────── ENTREPRISE A ─────────────────────────────────┐
 │  Env: PRODUCTION          Env: DÉVELOPPEMENT                    │
-│  ┌─────────────────┐      ┌──────────────────┐                  │
-│  │ Stack CRM       │      │ Stack CRM-DEV     │                  │
-│  │ Tomcat+Oracle   │      │ Tomcat+PostgreSQL │                  │
-│  │ Debian 12       │      │ Ubuntu 22.04      │                  │
-│  │ VM VMware       │      │ Physique (Dell)   │                  │
-│  └─────────────────┘      └──────────────────┘                  │
-│                                                                   │
-│  Cluster Kubernetes (prod)                                       │
+│  ┌─────────────────┐      ┌───────────────────┐                 │
+│  │ Stack CRM       │      │ Stack CRM-DEV     │                 │
+│  │ Tomcat+Oracle   │      │ Tomcat+PostgreSQL │                 │
+│  │ Debian 12       │      │ Ubuntu 22.04      │                 │
+│  │ VM VMware       │      │ Physique (Dell)   │                 │
+│  └─────────────────┘      └───────────────────┘                 │
+│                                                                 │
+│  Cluster Kubernetes (prod)                                      │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │  master-01 (Control Plane)   worker-01   worker-02        │   │
-│  │  ├─ kube-apiserver           ├─ pod-crm  ├─ pod-api       │   │
-│  │  ├─ etcd                     ├─ pod-db   ├─ pod-cache     │   │
-│  │  └─ kube-scheduler           └─ ...      └─ ...           │   │
+│  │  master-01 (Control Plane)   worker-01   worker-02       │   │
+│  │  ├─ kube-apiserver           ├─ pod-crm  ├─ pod-api      │   │
+│  │  ├─ etcd                     ├─ pod-db   ├─ pod-cache    │   │
+│  │  └─ kube-scheduler           └─ ...      └─ ...          │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
