@@ -485,7 +485,7 @@ php bin/console messenger:failed:retry
 
 - [Architecture détaillée](docs/ARCHITECTURE.md)
 - [Spécification des agents](docs/AGENTS.md)
-- [Guide d'intégration API](docs/API.md)
+- [Guide d'intégration API](docs/API_INTEGRATION.md)
 - [Configuration LDAP/OAuth2](docs/AUTHENTICATION.md)
 - [Dépannage avancé](docs/TROUBLESHOOTING.md)
 
