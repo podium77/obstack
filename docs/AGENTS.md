@@ -62,10 +62,6 @@ Remarque: côté serveur, l'association `AgentToken ↔ Application` est faite a
 - Les remédiations automatiques sont déclenchées uniquement pour des `Application`s qui existent dans un `Environment` et lorsque le serveur l'autorise.
 - L'agent de base ne peut pas effectuer de remédiation locale non autorisée.
 
-## Prochaines tâches possibles
-- Générer un job CI pour builder le binaire Rust et publier une release.
-- Ajouter un générateur de `installScript` plus complet (non-root, logging, rotation, utilisateur dédié).
-- Créer tests d'intégration pour l'endpoint `/install/{token}` et le flux `/register` → `/metrics`.
 
 ---
 
