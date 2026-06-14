@@ -1,8 +1,8 @@
-# obstack v2 — Architecture Complète
+# obstack v1 — Architecture Complète
 
 ## Vue d'ensemble
 
-obstack v2 est une plateforme **multi-tenant** d'observabilité pour stacks applicatives
+obstack v1 est une plateforme **multi-tenant** d'observabilité pour stacks applicatives
 (Tomcat + Oracle/PostgreSQL/MySQL + Java sur Debian/Ubuntu/RedHat/CentOS/Rocky Linux),
 avec support natif de **Kubernetes**, détection automatique des technologies, et modules
 d'intelligence artificielle (**PyRCA** + **Knowledge Graph**).
@@ -13,7 +13,7 @@ d'intelligence artificielle (**PyRCA** + **Knowledge Graph**).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    obstack v2 (Debian 12)                   │
+│                    obstack v1 (Debian 12)                   │
 │                                                                   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │                   COUCHE PRÉSENTATION                     │   │
@@ -312,7 +312,7 @@ curl -fsSL https://obstack.company.local/api/v1/agent/install/obs_acme_prod_xxx 
 ## Structure des fichiers
 
 ```
-obstack-v2/
+obstack/
 ├── src/
 │   ├── Entity/          Application, Company, Environment, CompanyUser,
 │   │                    EnvironmentUser, AgentToken,
@@ -346,6 +346,6 @@ obstack-v2/
 │   └── alert/           index
 ├── migrations/          Version20240201000001.php
 ├── docker/              Dockerfile, docker-compose.yml, nginx.conf
-├── docs/                ARCHITECTURE_V2.md
+├── docs/                ARCHITECTURE.md
 └── .env
 ```
