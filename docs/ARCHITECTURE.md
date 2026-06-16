@@ -62,7 +62,7 @@ d'intelligence artificielle (**PyRCA** + **Knowledge Graph**).
 ```
 Company (Entreprise/Tenant)
 ├── licenseKey (unique)
-├── slug (unique: "acme-corp-a3f8b2")
+├── slug (unique: "mon-entreprise-a3f8b2")
 ├── Environments[]
 │   ├── default (créé automatiquement, opérationnel immédiatement)
 │   ├── production
@@ -81,7 +81,7 @@ Environment
 ├── EnvironmentUsers[] (droits spécifiques par utilisateur)
 └── KubernetesNodes[] (si K8s activé)
 
-AgentToken: obs_acme-corp_prod_a3f8b2...
+AgentToken: obs_mon-entreprise_prod_a3f8b2...
 └── Lié à: company + environment + user (créateur)
 ```
 
@@ -134,7 +134,7 @@ en temps réel dans le formulaire de login.
 
 ```
 Format: obs_{company_slug}_{env_slug}_{64_hex_chars}
-Exemple: obs_acme-corp-a3f8b2_prod_7f3a8b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a
+Exemple: obs_mon-entreprise-a3f8b2_prod_7f3a8b2c1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a
 
 Cycle de vie:
   1. Superadmin crée un token via l'interface → génération automatique
