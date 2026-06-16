@@ -94,7 +94,7 @@
                 <label>Nom de l'entreprise <span class="required">*</span></label>
                 <input type="text" name="company_name" id="company-name"
                        value="{{ data.company_name ?? '' }}"
-                       placeholder="Acme Corporation" required oninput="checkName(this.value)">
+                       placeholder="Mon entreprise" required oninput="checkName(this.value)">
                 {% if errors.company_name is defined %}
                     <div class="error-msg">{{ errors.company_name }}</div>
                 {% endif %}
