@@ -80,7 +80,8 @@
             </thead>
             <tbody>
             {% for app in applications %}
-            {% set snap = app.metricSnapshots|first ?? null %}
+                {% set snapshots = app.metricSnapshots %}
+                {% set snap = snapshots is not empty ? snapshots|first : null %}
             <tr>
                 <td>
                     <div style="font-weight:500">{{ app.name }}</div>
@@ -98,7 +99,7 @@
                     <div style="display:flex;gap:3px;flex-wrap:wrap;max-width:160px">
                     {% for tech in app.detectedTechnologies|slice(0,4) %}
                         {% set techEnum = constant('App\\Enum\\TechnologyType::' ~ tech.type|upper) ?? null %}
-                        <span title="{{ tech.type }}{% if tech.version is defined %} {{ tech.version }}{% endif %}"
+                        <span title="{{ tech.type }}{% if tech.version %} {{ tech.version }}{% endif %}"
                               style="font-size:10px;padding:2px 5px;background:var(--color-bg-secondary);border-radius:3px">
                             {{ tech.type|upper|slice(0,6) }}
                         </span>
@@ -255,7 +256,8 @@
     <div class="card">
         <div class="card-header"><div class="card-header-title"><i class="ti ti-terminal-2"></i>Installation rapide</div></div>
         <div class="card-body">
-            {% set activeToken = agentTokens|filter(t => t.isValid)|first ?? null %}
+            {% set validTokens = agentTokens|filter(t => t.isValid) %}
+            {% set activeToken = validTokens is not empty ? validTokens|first : null %}
             {% if activeToken %}
             <p style="font-size:12.5px;color:var(--color-text-secondary);margin-bottom:10px">Exécutez sur chaque machine à superviser :</p>
             <div style="background:#0f1923;border-radius:8px;padding:12px;font-family:monospace;font-size:11.5px;color:#69db7c;word-break:break-all">

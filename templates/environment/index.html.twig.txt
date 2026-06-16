@@ -3,11 +3,9 @@
 {% block page_title %}Mes environnements{% endblock %}
 {% block page_subtitle_content %}
     {{ environments|length }} environnement(s) accessible(s)
-    {% if company is not null %}
-        · {{ company.name }}
-    {% elseif user is not null and user.company is not null %}
-        sur {{ user.company.environments|length }} au total
-    {% endif %}
+{% if user and user.company is not null %}
+    sur {{ user.company.environments|length }} au total
+{% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
@@ -19,34 +17,9 @@
 {% endblock %}
 
 {% block content %}
-
-{# Sélecteur d'entreprise pour superadmin global #}
-{% if is_granted('ROLE_SUPERADMIN') and companies|length > 0 %}
-<div class="card" style="margin-bottom:20px">
-    <div class="card-body" style="display:flex;align-items:center;gap:12px;padding:14px 18px">
-        <i class="ti ti-building" style="font-size:18px;color:var(--color-text-secondary)"></i>
-        <span style="font-size:13px;color:var(--color-text-secondary);white-space:nowrap">Entreprise :</span>
-        <select onchange="window.location.href='{{ path('env_index') }}?company_id=' + this.value"
-                style="flex:1;max-width:320px;padding:7px 10px;border:1.5px solid var(--color-border);border-radius:7px;font-size:13px;background:var(--color-bg-primary)">
-            <option value="">— Choisir une entreprise —</option>
-            {% for c in companies %}
-            <option value="{{ c.id }}" {{ company is not null and company.id == c.id ? 'selected' : '' }}>
-                {{ c.name }}
-            </option>
-            {% endfor %}
-        </select>
-        {% if company is not null %}
-        <span style="font-size:12px;color:var(--color-text-tertiary)">
-            {{ environments|length }} environnement(s)
-        </span>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
-
 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
 {% for env in environments %}
-    {% set role = roles[env.id] ?? null %}
+    {% set role = user.getRoleInEnvironment(env) %}
     <div class="card" style="border-top:4px solid {{ env.color }}">
         <div class="card-header">
             <div style="width:10px;height:10px;border-radius:50%;background:{{ env.active ? '#639922' : '#9ca3af' }};flex-shrink:0"></div>
@@ -86,7 +59,7 @@
                     <i class="ti ti-hexagon"></i>Kubernetes
                 </span>
                 {% endif %}
-                {% if role is not null %}
+                {% if role %}
                 <span class="severity-badge severity-ok">
                     <i class="ti ti-shield-check"></i>{{ role.getLabel() }}
                 </span>
@@ -130,16 +103,8 @@
 {% else %}
     <div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--color-text-tertiary)">
         <i class="ti ti-layout-grid" style="font-size:48px;display:block;margin-bottom:12px;color:var(--color-border)"></i>
-        <div style="font-size:18px;margin-bottom:8px">
-            {% if is_granted('ROLE_SUPERADMIN') and company is null %}
-                Sélectionnez une entreprise pour afficher ses environnements.
-            {% else %}
-                Aucun environnement accessible
-            {% endif %}
-        </div>
-        {% if not is_granted('ROLE_SUPERADMIN') %}
+        <div style="font-size:18px;margin-bottom:8px">Aucun environnement accessible</div>
         <p style="font-size:13px">Contactez votre administrateur pour obtenir un accès.</p>
-        {% endif %}
     </div>
 {% endfor %}
 </div>

@@ -11,11 +11,10 @@ class AgentInstallScriptGeneratorTest extends TestCase
 
     protected function setUp(): void
     {
-        if (!
-            is_string(shell_exec('command -v gpg 2>/dev/null')) ||
-            trim(shell_exec('command -v gpg 2>/dev/null')) === ''
-        ) {
-            self::markTestSkipped('GPG is required for fingerprint validation tests.');
+        // Skip tests if GPG is not available or cannot properly validate keys
+        $gpgVersion = shell_exec('gpg --version 2>&1');
+        if ($gpgVersion === null || strpos($gpgVersion, 'GnuPG') === false) {
+            self::markTestSkipped('GPG must be properly configured to run fingerprint validation tests.');
         }
 
         $this->generator = new AgentInstallScriptGenerator('http://localhost', 'v1', '', '', '');
@@ -23,7 +22,7 @@ class AgentInstallScriptGeneratorTest extends TestCase
 
     public function testValidatePublicKeyUrlAcceptsMatchingFingerprint(): void
     {
-        $publicKeyPath = $this->createTemporaryPublicKey();
+        $publicKeyPath = $this->getTestPublicKeyPath();
         $fingerprint = $this->getPublicKeyFingerprint($publicKeyPath);
 
         $method = new \ReflectionMethod(AgentInstallScriptGenerator::class, 'validatePublicKeyUrl');
@@ -38,7 +37,7 @@ class AgentInstallScriptGeneratorTest extends TestCase
 
     public function testValidatePublicKeyUrlRejectsNonMatchingFingerprint(): void
     {
-        $publicKeyPath = $this->createTemporaryPublicKey();
+        $publicKeyPath = $this->getTestPublicKeyPath();
 
         $method = new \ReflectionMethod(AgentInstallScriptGenerator::class, 'validatePublicKeyUrl');
         $method->setAccessible(true);
@@ -53,7 +52,7 @@ class AgentInstallScriptGeneratorTest extends TestCase
 
     public function testValidatePublicKeyUrlRejectsNonHexadecimalFingerprint(): void
     {
-        $publicKeyPath = $this->createTemporaryPublicKey();
+        $publicKeyPath = $this->getTestPublicKeyPath();
 
         $method = new \ReflectionMethod(AgentInstallScriptGenerator::class, 'validatePublicKeyUrl');
         $method->setAccessible(true);
@@ -68,7 +67,7 @@ class AgentInstallScriptGeneratorTest extends TestCase
 
     public function testValidatePublicKeyUrlRejectsTooShortFingerprint(): void
     {
-        $publicKeyPath = $this->createTemporaryPublicKey();
+        $publicKeyPath = $this->getTestPublicKeyPath();
 
         $method = new \ReflectionMethod(AgentInstallScriptGenerator::class, 'validatePublicKeyUrl');
         $method->setAccessible(true);
@@ -115,40 +114,13 @@ class AgentInstallScriptGeneratorTest extends TestCase
         }
     }
 
-    private function createTemporaryPublicKey(): string
+    private function getTestPublicKeyPath(): string
     {
-        $tmpDir = sys_get_temp_dir() . '/obstack_test_pubkey_' . bin2hex(random_bytes(6));
-        if (!mkdir($tmpDir, 0700, true) && !is_dir($tmpDir)) {
-            $this->fail('Impossible de créer le répertoire temporaire pour la clé publique.');
+        $fixturePath = __DIR__ . '/../fixtures/test_pubkey.asc';
+        if (!file_exists($fixturePath)) {
+            $this->markTestSkipped('Test public key fixture not found.');
         }
-
-        putenv('GNUPGHOME=' . $tmpDir);
-        $fullName = 'Test User <test@example.com>';
-        $command = sprintf(
-            'gpg --batch --quick-generate-key %s rsa2048 sign 0 2>/dev/null',
-            escapeshellarg($fullName)
-        );
-
-        $output = null;
-        $returnVar = null;
-        exec($command, $output, $returnVar);
-        if ($returnVar !== 0) {
-            $this->fail('Impossible de générer la clé GPG temporaire pour les tests.');
-        }
-
-        $pubKeyPath = $tmpDir . '/pubkey.asc';
-        $exportCommand = sprintf(
-            'gpg --batch --yes --armor --export %s > %s 2>/dev/null',
-            escapeshellarg($fullName),
-            escapeshellarg($pubKeyPath)
-        );
-
-        exec($exportCommand, $output, $returnVar);
-        if ($returnVar !== 0 || !is_file($pubKeyPath)) {
-            $this->fail('Impossible d’exporter la clé publique GPG temporaire.');
-        }
-
-        return $pubKeyPath;
+        return $fixturePath;
     }
 
     private function getPublicKeyFingerprint(string $publicKeyPath): string

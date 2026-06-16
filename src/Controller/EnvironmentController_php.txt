@@ -34,42 +34,11 @@ class EnvironmentController extends AbstractController
     ) {}
 
     #[Route('', name: 'index')]
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $user = $this->tenant->getUser();
-
-        // Superadmin global sans company → sélection d'entreprise
-        if ($this->isGranted('ROLE_SUPERADMIN') && !$user?->getCompany()) {
-            $companyId = $request->query->getInt('company_id');
-            $company   = $companyId ? $this->companyRepo->find($companyId) : null;
-
-            if (!$company) {
-                return $this->render('environment/index.html.twig', [
-                    'environments' => [],
-                    'user'         => $user,
-                    'roles'        => [],
-                    'companies'    => $this->companyRepo->findAll(),
-                    'company'      => null,
-                ]);
-            }
-
-            $environments = $company->getEnvironments()->toArray();
-        } else {
-            $company      = $user?->getCompany();
-            $environments = $this->tenant->getAccessibleEnvironments();
-        }
-
-        $roles = [];
-        foreach ($environments as $env) {
-            $roles[$env->getId()] = $this->tenant->getRoleInEnvironment($env);
-        }
-
         return $this->render('environment/index.html.twig', [
-            'environments' => $environments,
-            'user'         => $user,
-            'roles'        => $roles,
-            'companies'    => $this->isGranted('ROLE_SUPERADMIN') ? $this->companyRepo->findAll() : [],
-            'company'      => $company,
+            'environments' => $this->tenant->getAccessibleEnvironments(),
+            'user'         => $this->tenant->getUser(),
         ]);
     }
 
@@ -111,6 +80,9 @@ class EnvironmentController extends AbstractController
 
             if ($isNew) {
                 try {
+                    // Si l'utilisateur de contexte est null (superadmin global), utiliser
+                    // le superadmin de la company comme creator. Cela garantit que
+                    // l'EnvironmentUser.user (NOT NULL) est correctement peuplé.
                     $createdBy = $user ?? $this->userRepo->findSuperAdmin($company);
                     if (!$createdBy) {
                         throw new \RuntimeException('Aucun CompanyUser valide trouvé pour associer l\'environnement.');
@@ -151,6 +123,7 @@ class EnvironmentController extends AbstractController
     #[Route('/{id}', name: 'show', requirements: ['id' => '\d+'])]
     public function show(Environment $env): Response
     {
+        // Superadmin global peut voir tous les environnements
         if (!$this->isGranted('ROLE_SUPERADMIN') && !$this->tenant->canAccessEnvironment($env)) {
             throw $this->createAccessDeniedException();
         }

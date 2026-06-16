@@ -156,6 +156,21 @@ class AdminController extends AbstractController
                 $user->setLdapDn($data['ldap_dn'] ?? null);
             }
 
+            // Si le superadmin global crée un utilisateur, il doit choisir une company
+            if (!$company && $isNew) {
+                $companyId = $data['company_id'] ?? null;
+                if (empty($companyId)) {
+                    $this->addFlash('error', 'Veuillez sélectionner une entreprise pour cet utilisateur.');
+                    return $this->redirectToRoute('admin_user_new');
+                }
+                $selectedCompany = $this->companyRepo->find((int)$companyId);
+                if (!$selectedCompany) {
+                    $this->addFlash('error', 'Entreprise introuvable.');
+                    return $this->redirectToRoute('admin_user_new');
+                }
+                $user->setCompany($selectedCompany);
+            }
+
             $this->em->persist($user);
 
             // Assigner des environnements
@@ -185,6 +200,7 @@ class AdminController extends AbstractController
         }
 
         $envs = $company ? $this->envRepo->findActiveByCompany($company) : $this->envRepo->findAll();
+        $companies = $company ? null : $this->companyRepo->findAll();
 
         // Accès actuels par env
         $currentAccess = [];
@@ -199,6 +215,7 @@ class AdminController extends AbstractController
             'isNew'         => $isNew,
             'company'       => $company,
             'envs'          => $envs,
+            'companies'     => $companies,
             'roles'         => UserEnvironmentRole::cases(),
             'currentAccess' => $currentAccess,
         ]);

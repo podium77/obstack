@@ -33,6 +33,8 @@ class AgentApiControllerTest extends WebTestCase
         $container->set(AgentTokenRepository::class, $this->tokenRepo);
         $container->set(ApplicationRepository::class, $this->appRepo);
         $container->set(TenantContext::class, $this->tenantContext);
+        // Ensure controllers fetch the mocked EntityManager from the container
+        $container->set(\Doctrine\ORM\EntityManagerInterface::class, $this->em);
     }
 
     public function testInstallScriptWithValidToken(): void

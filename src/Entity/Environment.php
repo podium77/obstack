@@ -6,6 +6,7 @@ use App\Repository\EnvironmentRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 /**
  * Environnement d'une entreprise (prod, dev, lab, qa...).
@@ -29,9 +30,11 @@ class Environment
     private ?Company $company = null;
 
     #[ORM\Column(length: 100)]
+    #[Assert\NotBlank]
     private string $name = '';
 
     #[ORM\Column(length: 100)]
+    #[Assert\NotBlank]
     private string $slug = '';
 
     #[ORM\Column(length: 500, nullable: true)]
@@ -99,12 +102,28 @@ class Environment
         $this->masterToken       = $this->generateToken();
     }
 
+    #[ORM\PrePersist]
+    public function onPrePersist(): void {
+        // Ensure slug is never empty
+        if (empty($this->slug)) {
+            $this->slug = $this->generateSlugFromName();
+        }
+    }
+
     #[ORM\PreUpdate]
     public function onPreUpdate(): void { $this->updatedAt = new \DateTimeImmutable(); }
 
     private function generateToken(): string
     {
         return bin2hex(random_bytes(32));
+    }
+
+    private function generateSlugFromName(): string
+    {
+        $slug = strtolower(trim($this->name));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+        $slug = trim($slug, '-');
+        return $slug ?: 'env-' . bin2hex(random_bytes(4));
     }
 
     public function regenerateMasterToken(): void

@@ -29,6 +29,18 @@
             </div>
         </div>
 
+        {% if not company %}
+        <div class="form-group">
+            <label class="form-label">Entreprise *</label>
+            <select name="company_id" required>
+                <option value="">— Sélectionner une entreprise —</option>
+                {% for c in companies %}
+                    <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
         <div class="form-group">
             <label class="form-label">Email</label>
             <input type="email" name="email" value="{{ user.email }}" placeholder="mahamoud.jaffar@company.local">

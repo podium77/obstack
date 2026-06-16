@@ -52,9 +52,8 @@ class ApplicationController extends AbstractController
         }
 
         return $this->render('application/index.html.twig', [
-            'apps'     => $apps,
-            'metrics'  => $metrics,
-            'obs_envs' => $environments, // ← corrigé : variable attendue par le template
+            'apps'    => $apps,
+            'metrics' => $metrics,
         ]);
     }
 
@@ -157,15 +156,22 @@ class ApplicationController extends AbstractController
 
             return $this->redirectToRoute('app_application_show', ['id' => $app->getId()]);
         }
-
+        // dd([
+        //     'app_name'     => $app->getName(),
+        //     'osTypes'      => OsType::cases(),
+        //     'dbTypes'      => DbType::cases(),
+        //     'machineTypes' => MachineType::cases(),
+        //     'remActions'   => RemediationAction::cases(),
+        //     'triggerMetrics' => TriggerMetric::cases(),
+        // ]);
         return $this->render('application/form.html.twig', [
-            'application'    => $app,
-            'isNew'          => $isNew,
-            'environments'   => $environments,
-            'osTypes'        => OsType::cases(),
-            'dbTypes'        => DbType::cases(),
-            'machineTypes'   => MachineType::cases(),
-            'remActions'     => RemediationAction::cases(),
+            'application'  => $app,
+            'isNew'        => $isNew,
+            'environments' => $environments,
+            'osTypes'      => OsType::cases(),
+            'dbTypes'      => DbType::cases(),
+            'machineTypes' => MachineType::cases(),
+            'remActions'   => RemediationAction::cases(),
             'triggerMetrics' => TriggerMetric::cases(),
         ]);
     }
@@ -184,8 +190,8 @@ class ApplicationController extends AbstractController
     public function metricsHistory(Application $app, Request $request): JsonResponse
     {
         $this->denyAccessIfNotAllowed($app);
-        $hours   = min(168, max(1, (int)$request->query->get('hours', 24)));
-        $history = $this->snapshotRepo->findHistoryForApp($app, $hours);
+        $hours     = min(168, max(1, (int)$request->query->get('hours', 24)));
+        $history   = $this->snapshotRepo->findHistoryForApp($app, $hours);
         return $this->json($this->buildChartData($history));
     }
 
@@ -194,13 +200,13 @@ class ApplicationController extends AbstractController
     {
         $this->denyAccessIfNotAllowed($app);
         return $this->json([
-            'technologies'   => $app->getDetectedTechnologies(),
-            'machine_type'   => $app->getMachineType()->value,
-            'machine_label'  => $app->getMachineType()->getLabel(),
-            'is_virtual'     => $app->isVirtualMachine(),
-            'hardware_info'  => $app->getHardwareInfo(),
-            'system_info'    => $app->getSystemInfo(),
-            'last_detection' => $app->getLastDetectionAt()?->format('c'),
+            'technologies'    => $app->getDetectedTechnologies(),
+            'machine_type'    => $app->getMachineType()->value,
+            'machine_label'   => $app->getMachineType()->getLabel(),
+            'is_virtual'      => $app->isVirtualMachine(),
+            'hardware_info'   => $app->getHardwareInfo(),
+            'system_info'     => $app->getSystemInfo(),
+            'last_detection'  => $app->getLastDetectionAt()?->format('c'),
         ]);
     }
 

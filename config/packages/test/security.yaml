@@ -1,4 +1,18 @@
 security:
     firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+        
+        agent_api:
+            pattern: ^/api/v1/agent/
+            stateless: true
+            security: false
+
+        api_public:
+            pattern: ^/api/company/detect
+            security: false
+
+        # Disable security for test routes to focus on business logic
         main:
             security: false
