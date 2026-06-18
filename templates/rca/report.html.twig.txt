@@ -5,7 +5,7 @@
 
 {% block content %}
 <div style="margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">
-    <a href="{{ path('app_rca_analyze', {alertId: analysis.alert.id}) }}" class="btn btn-secondary">
+    <a href="{{ path('app_rca_analysis', {alertId: analysis.alert.id}) }}" class="btn btn-secondary">
         <i class="ti ti-arrow-left"></i> Retour à l'analyse
     </a>
     <button onclick="window.print()" class="btn btn-secondary">

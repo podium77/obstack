@@ -3,8 +3,6 @@ namespace App\Entity;
 
 use App\Enum\AlertSeverity;
 use App\Repository\AlertRepository;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: AlertRepository::class)]
@@ -53,21 +51,7 @@ class Alert
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
-    /**
-     * Côté inverse de RcaAnalysis::$alert (inversedBy: 'rcaAnalyses').
-     * Manquait jusqu'ici : Doctrine lève une MappingException dès que les
-     * métadonnées sont chargées tant que cette propriété n'existe pas
-     * ("Alert has no field or association named rcaAnalyses"), ce qui
-     * bloque potentiellement TOUTE requête Doctrine sur l'application,
-     * pas seulement les écrans RCA.
-     */
-    #[ORM\OneToMany(mappedBy: 'alert', targetEntity: RcaAnalysis::class, cascade: ['remove'])]
-    private Collection $rcaAnalyses;
-
-    public function __construct() {
-        $this->createdAt = new \DateTimeImmutable();
-        $this->rcaAnalyses = new ArrayCollection();
-    }
+    public function __construct() { $this->createdAt = new \DateTimeImmutable(); }
 
     public function resolve(): static {
         $this->resolved   = true;
@@ -107,23 +91,4 @@ class Alert
     public function getRemediationLog(): ?RemediationLog { return $this->remediationLog; }
     public function setRemediationLog(?RemediationLog $r): static { $this->remediationLog = $r; return $this; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
-
-    /**
-     * Alias de getCreatedAt() pour compatibilité avec les templates Twig
-     * qui appellent `alert.triggeredAt` (analysis.html.twig l.39 et
-     * report.html.twig l.40). L'entité n'a jamais eu de champ `triggeredAt`
-     * séparé — une alerte est déclenchée au moment où elle est créée.
-     */
-    public function getTriggeredAt(): \DateTimeImmutable { return $this->createdAt; }
-
-    /**
-     * Retourne le statut textuel de l'alerte pour le template Twig
-     * (`alert.status`, analysis.html.twig l.43). L'entité stocke un bool
-     * `resolved` et non un champ `status` : cette méthode fait la
-     * correspondance.
-     */
-    public function getStatus(): string { return $this->resolved ? 'resolved' : 'active'; }
-
-    /** @return Collection<int, RcaAnalysis> */
-    public function getRcaAnalyses(): Collection { return $this->rcaAnalyses; }
 }

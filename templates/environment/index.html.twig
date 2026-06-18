@@ -91,7 +91,8 @@
                     <i class="ti ti-shield-check"></i>{{ role.getLabel() }}
                 </span>
                 {% endif %}
-                {% set onlineAgents = env.agentTokens|filter(t => t.isOnline)|length %}
+                {# {% set onlineAgents = env.agentTokens|filter(t => t.isOnline)|length %}  #}
+                {% set onlineAgents = env.agentTokens|filter(t => t.isOnline())|length %}
                 {% if onlineAgents > 0 %}
                 <span class="severity-badge severity-ok">
                     <i class="ti ti-radio"></i>{{ onlineAgents }} agent(s) en ligne

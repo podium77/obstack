@@ -249,19 +249,6 @@ class AgentToken
         return substr($t, 0, 4) . str_repeat('*', max(0, $len - 8)) . substr($t, -4);
     }
 
-    /**
-     * Retourne true si l'agent a envoyé un heartbeat dans les $thresholdSeconds dernières secondes.
-     * Par défaut : 5 minutes (300 secondes).
-     */
-    public function isOnline(int $thresholdSeconds = 300): bool
-    {
-        if ($this->lastHeartbeatAt === null) {
-            return false;
-        }
-        $diff = (new \DateTimeImmutable())->getTimestamp() - $this->lastHeartbeatAt->getTimestamp();
-        return $diff <= $thresholdSeconds;
-    }
-
     public function recordHeartbeat(string $ip, string $hostname): self
     {
         $this->setDetectedIp($ip);
@@ -281,5 +268,18 @@ class AgentToken
     public function setUpdatedAtValue(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    public function isOnline(int $timeoutSeconds = 120): bool
+    {
+        if (!$this->isActive) {
+            return false;
+        }
+
+        if ($this->lastHeartbeatAt === null) {
+            return false;
+        }
+
+        return $this->lastHeartbeatAt >= new \DateTimeImmutable("-{$timeoutSeconds} seconds");
     }
 }

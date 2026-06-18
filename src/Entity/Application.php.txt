@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Entity;
+
+use App\Repository\ApplicationRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
+
+#[ORM\Entity(repositoryClass: ApplicationRepository::class)]
+#[ORM\Table(name: 'applications')]
+#[ORM\HasLifecycleCallbacks]
+class Application
+{
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column]
+    private ?int $id = null;
+
+    #[ORM\Column(length: 100)]
+    private string $name = '';
+
+    // ONE APPLICATION -> MANY TOKENS
+    #[ORM\OneToMany(mappedBy: 'application', targetEntity: AgentToken::class)]
+    #[ORM\OneToMany(mappedBy: 'application', targetEntity: RemediationPolicy::class, cascade: ['all'], orphanRemoval: true)]
+    private Collection $remediationPolicies;
+    #[ORM\OneToMany(mappedBy: 'application', targetEntity: MetricSnapshot::class, cascade: ['remove'])]
+    private Collection $metricSnapshots;
+    #[ORM\OneToMany(mappedBy: 'application', targetEntity: RemediationLog::class, cascade: ['remove'])]
+    private Collection $remediationLogs;
+    private Collection $agentTokens;
+    #[ORM\ManyToOne(inversedBy: 'applications')]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    private ?Environment $environment = null;
+    public function __construct()
+    {
+        $this->agentTokens = new ArrayCollection();
+        $this->remediationPolicies = new ArrayCollection();
+        $this->metricSnapshots = new ArrayCollection();
+        $this->remediationLogs = new ArrayCollection();
+    }
+
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    public function setName(string $name): self
+    {
+        $this->name = $name;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, AgentToken>
+     */
+    public function getAgentTokens(): Collection
+    {
+        return $this->agentTokens;
+    }
+}
