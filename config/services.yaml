@@ -7,6 +7,7 @@ parameters:
     app.obs_agent_artifact_base_url: '%env(default::OBS_AGENT_ARTIFACT_BASE_URL)%'
     app.obs_agent_pubkey_url: '%env(default::OBS_AGENT_PUBKEY_URL)%'
     app.obs_agent_pubkey_fingerprint: '%env(default::OBS_AGENT_PUBKEY_FINGERPRINT)%'
+    app.encryption_key: '%env(APP_ENCRYPTION_KEY)%'
 
 services:
     _defaults:
@@ -43,6 +44,11 @@ services:
             $slackWebhookUrl:   '%app.slack_webhook_url%'
             $teamsWebhookUrl:   '%app.teams_webhook_url%'
 
+    # Service de chiffrement des mots de passe
+    App\Service\PasswordEncryptionService:
+        arguments:
+            $encryptionKey: '%app.encryption_key%'
+
     # Contexte tenant (scope request)
     App\Service\TenantContext:
         shared: false
@@ -67,3 +73,15 @@ services:
     App\Service\Monitoring\OpenTelemetryService: ~
     App\Service\Monitoring\LokiService: ~
     App\Service\Monitoring\JaegerService: ~
+
+    # Service JWT pour l'authentification API
+    App\Service\JwtTokenService:
+        arguments:
+            $jwtSecret: '%env(JWT_SECRET)%'
+            $jwtAlgorithm: 'HS256'
+            $tokenExpiry: 3600
+
+    # Authenticateur JWT
+    App\Security\JwtAuthenticator:
+        tags:
+            - { name: security.authenticator }

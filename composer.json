@@ -24,6 +24,7 @@
         "doctrine/doctrine-bundle": "^3.2",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",
+        "firebase/php-jwt": "^7.1",
         "predis/predis": "^2.2",
         "symfony/asset": "^7.4",
         "symfony/asset-mapper": "^7.4",

@@ -1,5 +1,8 @@
 security:
     password_hashers:
+        App\Entity\LocalUser:
+            algorithm: bcrypt
+            cost: 12
         App\Entity\CompanyUser:
             algorithm: bcrypt
             cost: 12
@@ -23,8 +26,15 @@ security:
 
         # API publique
         api_public:
-            pattern: ^/api/company/detect
+            pattern: ^/api/(company/detect|login|refresh-token)
             security: false
+
+        # API Admin avec JWT
+        api_admin:
+            pattern: ^/api/
+            stateless: true
+            custom_authenticators:
+                - App\Security\JwtAuthenticator
 
         # Firewall principal
         main:
