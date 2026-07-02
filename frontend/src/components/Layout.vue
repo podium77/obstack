@@ -116,6 +116,15 @@
           >
             <span>👥 Presence</span>
           </router-link>
+          <router-link
+            to="/phase17"
+            class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
+            :class="$route.name === 'Phase17'
+              ? 'bg-blue-100 text-blue-900'
+              : 'text-gray-600 hover:bg-gray-100'"
+          >
+            <span>💬 Messaging</span>
+          </router-link>
         </nav>
       </aside>
 

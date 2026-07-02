@@ -76,6 +76,11 @@ const routes: RouteRecordRaw[] = [
         path: 'phase16',
         name: 'Phase16',
         component: () => import('@/views/Phase16View.vue')
+      },
+      {
+        path: 'phase17',
+        name: 'Phase17',
+        component: () => import('@/views/Phase17View.vue')
       }
     ]
   },

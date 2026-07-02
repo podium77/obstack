@@ -6,6 +6,16 @@
         <h1>🔐 Advanced Security Settings</h1>
         <p class="text-gray-600">Manage row-level security, multi-factor authentication, and audit logs</p>
       </div>
+      <!-- Quick Access Button (Admin Only) -->
+      <div v-if="authStore.user?.isGlobalAdmin" class="quick-access">
+        <button 
+          class="btn-console"
+          @click="openAdminConsole"
+          title="Launch Obstack Admin Database Management Console (Admin Only)"
+        >
+          🚀 Open Admin Console
+        </button>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -367,6 +377,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 import {
   listRlsPolicies,
   createRlsPolicy,
@@ -388,6 +399,9 @@ import {
   type RetentionPolicy,
   type EncryptionMetadata,
 } from '@/services/security';
+
+// Auth store for permission checks
+const authStore = useAuthStore();
 
 // Active tab
 const activeTab = ref('rls');
@@ -610,6 +624,12 @@ function configureEncryption() {
 function rotateKeys() {
   // TODO: Call API to rotate keys
   showAlert('Key rotation initiated', 'success');
+}
+
+// Admin Console Method
+function openAdminConsole() {
+  const adminUrl = window.location.protocol + '//' + window.location.hostname + ':5173'
+  window.open(adminUrl, '_blank')
 }
 
 // Utility Methods
@@ -1138,6 +1158,37 @@ function formatBytes(bytes: number): string {
   border: 1px solid #fcd34d;
 }
 
+/* Quick Access Section */
+.quick-access {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-console {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(102, 126, 234, 0.4);
+  white-space: nowrap;
+}
+
+.btn-console:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.6);
+}
+
+.btn-console:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.4);
+}
+
 @media (max-width: 768px) {
   .security-settings-view {
     padding: 1rem;
@@ -1146,6 +1197,16 @@ function formatBytes(bytes: number): string {
   .settings-header {
     flex-direction: column;
     text-align: center;
+    gap: 1rem;
+  }
+
+  .quick-access {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .btn-console {
+    width: 100%;
   }
 
   .settings-header h1 {
