@@ -8,6 +8,11 @@ security:
             cost: 12
 
     providers:
+        local_users:
+            entity:
+                class: App\Entity\LocalUser
+                property: username
+                
         company_users:
             entity:
                 class: App\Entity\CompanyUser
@@ -24,7 +29,7 @@ security:
             stateless: true
             security: false
 
-        # API publique
+        # API publique (pas d'authentification requise)
         api_public:
             pattern: ^/api/(company/detect|login|refresh-token)
             security: false
@@ -35,6 +40,7 @@ security:
             stateless: true
             custom_authenticators:
                 - App\Security\JwtAuthenticator
+            provider: local_users
 
         # Firewall principal
         main:

@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Repository\LocalUserRepository;
 use App\Service\JwtTokenService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,12 +18,13 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
  * Authenticateur JWT pour les requêtes API
  * 
  * Valide les tokens Bearer JWT dans le header Authorization
- * Extrait l'ID utilisateur du token et le charge via UserProvider
+ * Extrait l'ID utilisateur du token et le charge via LocalUserRepository
  */
 class JwtAuthenticator extends AbstractAuthenticator
 {
     public function __construct(
         private JwtTokenService $tokenService,
+        private LocalUserRepository $userRepository,
     ) {}
 
     /**
@@ -58,9 +60,14 @@ class JwtAuthenticator extends AbstractAuthenticator
             throw new AuthenticationException("Token JWT invalide: {$e->getMessage()}");
         }
 
-        // Retourner un Passport qui charge l'utilisateur via UserProvider
+        // Retourner un Passport qui charge l'utilisateur par ID
         return new SelfValidatingPassport(
-            new UserBadge($userId)
+            new UserBadge(
+                $userId,
+                function($userId) {
+                    return $this->userRepository->find($userId);
+                }
+            )
         );
     }
 
@@ -76,7 +83,7 @@ class JwtAuthenticator extends AbstractAuthenticator
     /**
      * Appelé après une échec d'authentification
      */
-    public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
+    public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
         return new JsonResponse([
             'success' => false,

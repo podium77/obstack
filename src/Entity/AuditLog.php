@@ -108,6 +108,10 @@ class AuditLog
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $metadata = null;
 
+    /** Temps d'exécution en millisecondes */
+    #[ORM\Column(nullable: true)]
+    private ?int $executionTime = null;
+
     #[ORM\Column]
     private \DateTimeImmutable $createdAt;
 
@@ -272,6 +276,17 @@ class AuditLog
     public function setMetadata(?array $metadata): self
     {
         $this->metadata = $metadata;
+        return $this;
+    }
+
+    public function getExecutionTime(): ?int
+    {
+        return $this->executionTime;
+    }
+
+    public function setExecutionTime(?int $executionTime): self
+    {
+        $this->executionTime = $executionTime;
         return $this;
     }
 

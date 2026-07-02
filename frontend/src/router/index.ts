@@ -41,6 +41,41 @@ const routes: RouteRecordRaw[] = [
         path: 'audit',
         name: 'AuditLogs',
         component: () => import('@/views/AuditLogsView.vue')
+      },
+      {
+        path: 'performance',
+        name: 'Performance',
+        component: () => import('@/views/PerformanceView.vue')
+      },
+      {
+        path: 'data-management',
+        name: 'DataManagement',
+        component: () => import('@/views/DataManagementView.vue')
+      },
+      {
+        path: 'security-settings',
+        name: 'SecuritySettings',
+        component: () => import('@/views/SecuritySettingsView.vue')
+      },
+      {
+        path: 'collaboration',
+        name: 'Collaboration',
+        component: () => import('@/views/CollaborationView.vue')
+      },
+      {
+        path: 'phase14',
+        name: 'Phase14',
+        component: () => import('@/views/Phase14View.vue')
+      },
+      {
+        path: 'phase15',
+        name: 'Phase15',
+        component: () => import('@/views/Phase15View.vue')
+      },
+      {
+        path: 'phase16',
+        name: 'Phase16',
+        component: () => import('@/views/Phase16View.vue')
       }
     ]
   },

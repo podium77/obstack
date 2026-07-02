@@ -70,13 +70,20 @@
             </td>
             <td>
               <div class="flex space-x-2">
-                <button
-                  @click="selectConnection(conn.id)"
+                <router-link
+                  :to="`/browser/${conn.id}`"
                   class="btn btn-secondary text-xs py-1"
-                  title="View details"
+                  title="Browse database"
                 >
-                  View
-                </button>
+                  Browse
+                </router-link>
+                <router-link
+                  :to="`/query/${conn.id}`"
+                  class="btn btn-secondary text-xs py-1"
+                  title="Execute query"
+                >
+                  Query
+                </router-link>
                 <button
                   @click="testConnection(conn.id)"
                   :disabled="isTestingConnection === conn.id"
@@ -236,11 +243,9 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useDatabaseStore } from '@/stores/database'
-import { useRouter } from 'vue-router'
 import type { DatabaseConnection } from '@/types'
 
 const databaseStore = useDatabaseStore()
-const router = useRouter()
 
 const showNewConnectionModal = ref(false)
 const deleteConfirmId = ref<number | null>(null)
@@ -285,10 +290,6 @@ const closeNewConnectionModal = () => {
     username: '',
     password: ''
   })
-}
-
-const selectConnection = (id: number) => {
-  router.push(`/connections/${id}`)
 }
 
 const testConnection = async (id: number) => {

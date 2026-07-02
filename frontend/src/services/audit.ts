@@ -29,8 +29,8 @@ export const auditService = {
     }>(`/admin/audit/logs?${params.toString()}`)
 
     return {
-      data: response.data?.data || [],
-      total: response.data?.metadata.total || 0
+      data: response.data || [],
+      total: response.metadata?.total || 0
     }
   },
 

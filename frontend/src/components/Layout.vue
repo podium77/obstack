@@ -53,6 +53,69 @@
           >
             <span>📋 Audit Logs</span>
           </router-link>
+          <router-link
+            to="/performance"
+            class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
+            :class="$route.name === 'Performance'
+              ? 'bg-blue-100 text-blue-900'
+              : 'text-gray-600 hover:bg-gray-100'"
+          >
+            <span>📊 Performance</span>
+          </router-link>
+          <router-link
+            to="/data-management"
+            class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
+            :class="$route.name === 'DataManagement'
+              ? 'bg-blue-100 text-blue-900'
+              : 'text-gray-600 hover:bg-gray-100'"
+          >
+            <span>📊 Data Management</span>
+          </router-link>
+          <router-link
+            to="/security-settings"
+            class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
+            :class="$route.name === 'SecuritySettings'
+              ? 'bg-blue-100 text-blue-900'
+              : 'text-gray-600 hover:bg-gray-100'"
+          >
+            <span>🔐 Security Settings</span>
+          </router-link>
+          <router-link
+            to="/collaboration"
+            class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
+            :class="$route.name === 'Collaboration'
+              ? 'bg-blue-100 text-blue-900'
+              : 'text-gray-600 hover:bg-gray-100'"
+          >
+            <span>👥 Collaboration</span>
+          </router-link>
+          <router-link
+            to="/phase14"
+            class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
+            :class="$route.name === 'Phase14'
+              ? 'bg-blue-100 text-blue-900'
+              : 'text-gray-600 hover:bg-gray-100'"
+          >
+            <span>⚡ Advanced Collab</span>
+          </router-link>
+          <router-link
+            to="/phase15"
+            class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
+            :class="$route.name === 'Phase15'
+              ? 'bg-blue-100 text-blue-900'
+              : 'text-gray-600 hover:bg-gray-100'"
+          >
+            <span>🔔 Notifications</span>
+          </router-link>
+          <router-link
+            to="/phase16"
+            class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
+            :class="$route.name === 'Phase16'
+              ? 'bg-blue-100 text-blue-900'
+              : 'text-gray-600 hover:bg-gray-100'"
+          >
+            <span>👥 Presence</span>
+          </router-link>
         </nav>
       </aside>
 

@@ -76,6 +76,31 @@ class AuditLogController extends AbstractController
 
             $logs = $qb->getQuery()->getResult();
 
+            // Get total count for pagination (need to create a separate query)
+            $countQb = $this->auditLogRepository->createQueryBuilder('a');
+            
+            if ($action) {
+                $countQb->andWhere('a.action = :action')
+                    ->setParameter('action', $action);
+            }
+            if ($userId) {
+                $countQb->andWhere('a.user = :userId')
+                    ->setParameter('userId', $userId);
+            }
+            if ($resourceType) {
+                $countQb->andWhere('a.resourceType = :resourceType')
+                    ->setParameter('resourceType', $resourceType);
+            }
+            if ($status) {
+                $countQb->andWhere('a.status = :status')
+                    ->setParameter('status', $status);
+            }
+
+            $total = (int)$countQb
+                ->select('COUNT(a.id)')
+                ->getQuery()
+                ->getSingleScalarResult();
+
             // Formater les données
             $data = array_map(function ($log) {
                 return [
@@ -102,7 +127,11 @@ class AuditLogController extends AbstractController
             return $this->json([
                 'success' => true,
                 'data' => $data,
-                'count' => count($data),
+                'metadata' => [
+                    'total' => $total,
+                    'limit' => $limit,
+                    'offset' => $offset,
+                ],
             ]);
         } catch (\Exception $e) {
             return $this->json([

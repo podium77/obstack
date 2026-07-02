@@ -177,7 +177,7 @@ class AuthApiController extends AbstractController
 
         return $this->json([
             'success' => true,
-            'user' => [
+            'data' => [
                 'id' => $user->getId(),
                 'email' => $user->getEmail(),
                 'displayName' => $user->getDisplayName(),
@@ -267,12 +267,42 @@ class AuthApiController extends AbstractController
         }
 
         try {
+            // Vérifier que c'est un refresh token valide
             $decoded = $this->jwtTokenService->verifyRefreshToken($data['refreshToken']);
-            
+            $userId = $decoded['sub'] ?? null;
+
+            if (!$userId) {
+                return $this->json(
+                    [
+                        'success' => false,
+                        'message' => 'Identifiant utilisateur manquant dans le refresh token',
+                        'error' => 'invalid_refresh_token'
+                    ],
+                    JsonResponse::HTTP_UNAUTHORIZED
+                );
+            }
+
+            // Charger l'utilisateur
+            /** @var LocalUser|null $user */
+            $user = $this->userRepository->find($userId);
+
+            if (!$user || !$user->isActive()) {
+                return $this->json(
+                    [
+                        'success' => false,
+                        'message' => 'Utilisateur invalide ou inactif',
+                        'error' => 'invalid_user'
+                    ],
+                    JsonResponse::HTTP_UNAUTHORIZED
+                );
+            }
+
+            // Générer un nouveau token d'accès
+            $tokenData = $this->jwtTokenService->generateAccessToken($user);
+
             return $this->json([
-                'success' => false,
-                'message' => 'Renouvellement de token non implémenté',
-                'error' => 'not_implemented'
+                'success' => true,
+                'data' => $tokenData
             ]);
         } catch (\Exception $e) {
             return $this->json(

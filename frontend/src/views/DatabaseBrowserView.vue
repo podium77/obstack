@@ -13,6 +13,12 @@
       </div>
     </div>
 
+    <!-- Error Alert -->
+    <div v-if="error" class="alert-error mb-4">
+      {{ error }}
+      <button @click="error = null" class="ml-2 font-bold">✕</button>
+    </div>
+
     <!-- Connection Info -->
     <div v-if="selectedConnection" class="card mb-6">
       <div class="flex justify-between items-center">
@@ -184,6 +190,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDatabaseStore } from '@/stores/database'
+import { databaseService } from '@/services/database'
 import type { DatabaseStructure } from '@/types'
 
 const route = useRoute()
@@ -198,6 +205,7 @@ const structures = ref<DatabaseStructure[]>([])
 const selectedStructure = ref<DatabaseStructure | null>(null)
 const isLoadingStructures = ref(false)
 const isLoadingData = ref(false)
+const error = ref<string | null>(null)
 const tableData = ref<Record<string, any>[]>([])
 
 const dataColumns = computed(() => {
@@ -211,16 +219,16 @@ onMounted(async () => {
 
 const loadStructures = async () => {
   isLoadingStructures.value = true
+  error.value = null
   try {
-    // Mock structures
-    structures.value = [
-      { schema: 'public', name: 'users', type: 'table', columns: ['id', 'email', 'name', 'created_at'], rowCount: 42 },
-      { schema: 'public', name: 'companies', type: 'table', columns: ['id', 'name', 'slug', 'created_at'], rowCount: 8 },
-      { schema: 'public', name: 'audit_logs', type: 'view', columns: ['id', 'action', 'user_id', 'created_at'], rowCount: 1234 },
-      { schema: 'public', name: 'applications', type: 'table', columns: ['id', 'name', 'company_id'], rowCount: 24 },
-    ]
-  } catch (error) {
-    console.error('Failed to load structures:', error)
+    if (!selectedConnection.value) {
+      throw new Error('Connection not found')
+    }
+    
+    structures.value = await databaseService.listStructures(selectedConnection.value.id)
+  } catch (err: any) {
+    error.value = err.message || 'Failed to load database structures'
+    console.error('Error loading structures:', err)
   } finally {
     isLoadingStructures.value = false
   }
@@ -232,28 +240,21 @@ const selectStructure = (struct: DatabaseStructure) => {
 }
 
 const loadTableData = async () => {
-  if (!selectedStructure.value) return
+  if (!selectedStructure.value || !selectedConnection.value) return
   
   isLoadingData.value = true
+  error.value = null
   try {
-    // Mock table data
-    if (selectedStructure.value.name === 'users') {
-      tableData.value = [
-        { id: 1, email: 'admin@example.com', name: 'Admin User', created_at: '2026-01-01' },
-        { id: 2, email: 'user@example.com', name: 'Regular User', created_at: '2026-01-02' },
-        { id: 3, email: 'test@example.com', name: 'Test User', created_at: '2026-01-03' },
-        { id: 4, email: 'dev@example.com', name: 'Dev User', created_at: '2026-01-04' },
-        { id: 5, email: 'prod@example.com', name: 'Prod User', created_at: '2026-01-05' },
-      ]
-    } else if (selectedStructure.value.name === 'audit_logs') {
-      tableData.value = [
-        { id: 1, action: 'create', user_id: 1, created_at: '2026-01-01 10:00:00' },
-        { id: 2, action: 'update', user_id: 1, created_at: '2026-01-01 10:15:00' },
-        { id: 3, action: 'delete', user_id: 2, created_at: '2026-01-01 10:30:00' },
-      ]
-    }
-  } catch (error) {
-    console.error('Failed to load data:', error)
+    const result = await databaseService.listTableData(
+      selectedConnection.value.id,
+      selectedStructure.value.name,
+      50,
+      0
+    )
+    tableData.value = result.data
+  } catch (err: any) {
+    error.value = err.message || 'Failed to load table data'
+    console.error('Error loading data:', err)
   } finally {
     isLoadingData.value = false
   }

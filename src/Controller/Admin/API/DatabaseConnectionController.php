@@ -92,7 +92,7 @@ class DatabaseConnectionController extends AbstractController
                     'lastTestedAt' => $connection->getLastTestedAt()?->format('c'),
                     'advancedOptions' => $connection->getAdvancedOptions() ?? [],
                     'createdAt' => $connection->getCreatedAt()->format('c'),
-                    'updatedAt' => $connection->getUpdatedAt()->format('c'),
+                    'updatedAt' => $connection->getUpdatedAt()?->format('c'),
                 ],
             ]);
         } catch (\Exception $e) {

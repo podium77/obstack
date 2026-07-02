@@ -2,7 +2,7 @@
 
 namespace App\Service;
 
-use App\Entity\User;
+use App\Entity\LocalUser;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
@@ -33,10 +33,10 @@ class JwtTokenService
     /**
      * Génère un token JWT pour l'utilisateur
      */
-    public function generateToken(User $user): array
+    public function generateToken(LocalUser $user): array
     {
         $now = new \DateTime('now', new \DateTimeZone('UTC'));
-        $expiresAt = $now->modify("+{$this->tokenExpiry} seconds");
+        $expiresAt = (clone $now)->modify("+{$this->tokenExpiry} seconds");
 
         $payload = [
             'iss' => 'obstack',
@@ -74,10 +74,10 @@ class JwtTokenService
     /**
      * Génère un refresh token
      */
-    private function generateRefreshToken(User $user): string
+    private function generateRefreshToken(LocalUser $user): string
     {
         $now = new \DateTime('now', new \DateTimeZone('UTC'));
-        $expiresAt = $now->modify("+{$this->refreshTokenExpiry} seconds");
+        $expiresAt = (clone $now)->modify("+{$this->refreshTokenExpiry} seconds");
 
         $payload = [
             'iss' => 'obstack',
@@ -106,5 +106,32 @@ class JwtTokenService
         } catch (\Exception $e) {
             throw new \InvalidArgumentException("Refresh token invalide: {$e->getMessage()}");
         }
+    }
+
+    /**
+     * Génère seulement un token d'accès (pour le refresh)
+     */
+    public function generateAccessToken(LocalUser $user): array
+    {
+        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        $expiresAt = (clone $now)->modify("+{$this->tokenExpiry} seconds");
+
+        $payload = [
+            'iss' => 'obstack',
+            'sub' => (string)$user->getId(),
+            'iat' => $now->getTimestamp(),
+            'exp' => $expiresAt->getTimestamp(),
+            'email' => $user->getEmail(),
+            'displayName' => $user->getDisplayName(),
+            'roles' => $user->getRoles(),
+        ];
+
+        $token = JWT::encode($payload, $this->jwtSecret, $this->jwtAlgorithm);
+
+        return [
+            'token' => $token,
+            'expiresAt' => $expiresAt->format(\DateTime::ATOM),
+            'expiresIn' => $this->tokenExpiry,
+        ];
     }
 }

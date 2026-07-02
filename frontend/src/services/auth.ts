@@ -23,7 +23,7 @@ export const authService = {
       return mockAuthService.validateToken(token)
     }
 
-    const response = await apiClient.get<User>('/admin/validate-token')
+    const response = await apiClient.get<User>('/validate-token')
     if (response.success && response.data) {
       return response.data
     }
