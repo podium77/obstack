@@ -8,6 +8,9 @@ parameters:
     app.obs_agent_pubkey_url: '%env(default::OBS_AGENT_PUBKEY_URL)%'
     app.obs_agent_pubkey_fingerprint: '%env(default::OBS_AGENT_PUBKEY_FINGERPRINT)%'
     app.encryption_key: '%env(APP_ENCRYPTION_KEY)%'
+        #  Redis configuration
+    app.redis_host: '%env(REDIS_HOST)%'
+    app.redis_port: '%env(int:REDIS_PORT)%'
 
 services:
     _defaults:
@@ -49,6 +52,11 @@ services:
         arguments:
             $encryptionKey: '%app.encryption_key%'
 
+    # Service de chiffrement générique
+    App\Service\EncryptionService:
+        arguments:
+            $encryptionKey: '%app.encryption_key%'
+
     # Contexte tenant (scope request)
     App\Service\TenantContext:
         shared: false
@@ -85,3 +93,9 @@ services:
     App\Security\JwtAuthenticator:
         tags:
             - { name: security.authenticator }
+
+    # Redis client
+    Redis:
+        class: Redis
+        calls:
+            - connect: ['%app.redis_host%', '%app.redis_port%']
