@@ -3,6 +3,7 @@ namespace App\Controller;
 
 use App\Entity\CompanyUser;
 use App\Entity\EnvironmentUser;
+use App\Entity\LocalUser;
 use App\Enum\UserEnvironmentRole;
 use App\Repository\ApplicationRepository;
 use App\Repository\CompanyRepository;
@@ -368,5 +369,131 @@ class AdminController extends AbstractController
         $this->em->flush();
 
         return $this->json(['success' => true, 'new_token' => $env->getMasterToken()]);
+    }
+
+    // ─── Paramètres globaux (Admin Global) ──────────────────────────────
+    #[Route('/global-settings', name: 'global_settings', methods: ['GET'])]
+    public function globalSettings(): Response
+    {
+        $user = $this->getUser();
+        
+        // Vérifier que c'est un admin global
+        if (!($user instanceof LocalUser && $user->isGlobalAdmin())) {
+            throw $this->createAccessDeniedException('Seuls les administrateurs globaux peuvent accéder à cette page.');
+        }
+        
+        return $this->render('admin/global_settings.html.twig', [
+            'user' => $user,
+        ]);
+    }
+
+    // ─── Statut Admin Console ──────────────────────────────────────────
+    #[Route('/global-settings/status', name: 'global_settings_status', methods: ['GET'])]
+    public function globalSettingsStatus(): JsonResponse
+    {
+        $user = $this->getUser();
+        
+        if (!($user instanceof LocalUser && $user->isGlobalAdmin())) {
+            return $this->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // Vérifier si le serveur Vue3 est en cours d'exécution sur le port 5173
+        $output = shell_exec('lsof -i :5173 2>/dev/null');
+        $running = !empty($output);
+
+        return $this->json([
+            'running' => $running,
+            'port' => 5173,
+            'url' => 'http://localhost:5173'
+        ]);
+    }
+
+    // ─── Démarrer Admin Console ────────────────────────────────────────
+    #[Route('/global-settings/start', name: 'global_settings_start', methods: ['POST'])]
+    public function globalSettingsStart(): JsonResponse
+    {
+        $user = $this->getUser();
+        
+        if (!($user instanceof LocalUser && $user->isGlobalAdmin())) {
+            return $this->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        try {
+            // Vérifier si c'est déjà en cours
+            $output = shell_exec('lsof -i :5173 2>/dev/null');
+            if (!empty($output)) {
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Admin Console est déjà en cours d\'exécution'
+                ]);
+            }
+
+            // Lancer le serveur Vue3 en arrière-plan
+            // Attention: adapter le chemin si le frontend Vue3 est dans un autre répertoire
+            $frontendDir = dirname(__DIR__, 2) . '/frontend';
+            
+            if (!is_dir($frontendDir)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Répertoire frontend non trouvé: ' . $frontendDir
+                ], 400);
+            }
+
+            // Lancer npm run dev en arrière-plan
+            shell_exec("cd $frontendDir && npm run dev > /tmp/admin_console.log 2>&1 &");
+            
+            // Attendre un peu pour le démarrage
+            sleep(2);
+
+            // Vérifier que c'est démarré
+            $output = shell_exec('lsof -i :5173 2>/dev/null');
+            if (empty($output)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Le serveur n\'a pas démarré correctement. Vérifiez /tmp/admin_console.log'
+                ], 400);
+            }
+
+            return $this->json(['success' => true, 'message' => 'Admin Console démarré']);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Erreur: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // ─── Arrêter Admin Console ────────────────────────────────────────
+    #[Route('/global-settings/stop', name: 'global_settings_stop', methods: ['POST'])]
+    public function globalSettingsStop(): JsonResponse
+    {
+        $user = $this->getUser();
+        
+        if (!($user instanceof LocalUser && $user->isGlobalAdmin())) {
+            return $this->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        try {
+            // Tuer le processus sur le port 5173
+            shell_exec('lsof -ti :5173 | xargs kill -9 2>/dev/null || true');
+            
+            sleep(1);
+
+            // Vérifier que c'est bien arrêté
+            $output = shell_exec('lsof -i :5173 2>/dev/null');
+            if (!empty($output)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Impossible d\'arrêter le serveur'
+                ], 400);
+            }
+
+            return $this->json(['success' => true, 'message' => 'Admin Console arrêté']);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Erreur: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

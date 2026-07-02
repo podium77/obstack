@@ -6,15 +6,45 @@
         <h1>🔐 Advanced Security Settings</h1>
         <p class="text-gray-600">Manage row-level security, multi-factor authentication, and audit logs</p>
       </div>
-      <!-- Quick Access Button (Admin Only) -->
+      <!-- Quick Access Buttons (Admin Only) -->
       <div v-if="authStore.user?.isGlobalAdmin" class="quick-access">
+        <!-- Server is stopped -->
         <button 
-          class="btn-console"
-          @click="openAdminConsole"
-          title="Launch Obstack Admin Database Management Console (Admin Only)"
+          v-if="!adminConsoleStatus.running && !adminConsoleStatus.loading"
+          class="btn-console btn-start"
+          @click="startAdminConsole"
+          title="Start Admin Console Server"
         >
-          🚀 Open Admin Console
+          ▶️ Start Admin Console
         </button>
+        
+        <!-- Server is starting -->
+        <button 
+          v-if="adminConsoleStatus.loading"
+          class="btn-console btn-loading"
+          disabled
+          title="Starting Admin Console..."
+        >
+          ⟳ Starting...
+        </button>
+        
+        <!-- Server is running -->
+        <template v-if="adminConsoleStatus.running && !adminConsoleStatus.loading">
+          <button 
+            class="btn-console btn-open"
+            @click="openAdminConsole"
+            title="Open Admin Console in new window"
+          >
+            🚀 Open Admin Console
+          </button>
+          <button 
+            class="btn-console btn-stop"
+            @click="stopAdminConsole"
+            title="Stop Admin Console Server"
+          >
+            ⏹️ Stop
+          </button>
+        </template>
       </div>
     </div>
 
@@ -403,6 +433,13 @@ import {
 // Auth store for permission checks
 const authStore = useAuthStore();
 
+// Admin Console State (declare first!)
+const adminConsoleStatus = ref({
+  running: false,
+  loading: false,
+  url: 'http://localhost:5173'
+});
+
 // Active tab
 const activeTab = ref('rls');
 
@@ -478,6 +515,9 @@ onMounted(async () => {
 
     // Load encryption metadata
     encryption.value.metadata = await getEncryptionMetadata();
+    
+    // Check Admin Console status
+    await checkAdminConsoleStatus();
   } catch (error) {
     showAlert('Failed to load security settings', 'error');
   }
@@ -626,10 +666,87 @@ function rotateKeys() {
   showAlert('Key rotation initiated', 'success');
 }
 
-// Admin Console Method
+// Admin Console Methods
+async function checkAdminConsoleStatus() {
+  try {
+    const token = authStore.token;
+    const response = await fetch('http://localhost:8000/api/admin-console/status', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      adminConsoleStatus.value = {
+        running: data.running,
+        loading: false,
+        url: data.url
+      };
+    }
+  } catch (error) {
+    adminConsoleStatus.value.running = false;
+  }
+}
+
+async function startAdminConsole() {
+  adminConsoleStatus.value.loading = true;
+  try {
+    const token = authStore.token;
+    const response = await fetch('http://localhost:8000/api/admin-console/start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      }
+    });
+    const data = await response.json();
+    if (data.success) {
+      adminConsoleStatus.value.running = true;
+      showAlert('Admin Console started successfully', 'success');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      openAdminConsole();
+    } else {
+      showAlert(data.message || 'Failed to start Admin Console', 'error');
+    }
+  } catch (error) {
+    showAlert('Error starting Admin Console: ' + (error as Error).message, 'error');
+  } finally {
+    adminConsoleStatus.value.loading = false;
+  }
+}
+
+async function stopAdminConsole() {
+  if (!confirm('Are you sure you want to stop the Admin Console server?')) {
+    return;
+  }
+  
+  try {
+    const token = authStore.token;
+    const response = await fetch('http://localhost:8000/api/admin-console/stop', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      }
+    });
+    const data = await response.json();
+    if (data.success) {
+      adminConsoleStatus.value.running = false;
+      showAlert('Admin Console stopped successfully', 'success');
+    } else {
+      showAlert(data.message || 'Failed to stop Admin Console', 'error');
+    }
+  } catch (error) {
+    showAlert('Error stopping Admin Console: ' + (error as Error).message, 'error');
+  }
+}
+
 function openAdminConsole() {
-  const adminUrl = window.location.protocol + '//' + window.location.hostname + ':5173'
-  window.open(adminUrl, '_blank')
+  if (!adminConsoleStatus.value.running) {
+    showAlert('Admin Console is not running. Start it first.', 'warning');
+    return;
+  }
+  window.open(adminConsoleStatus.value.url, '_blank');
 }
 
 // Utility Methods
@@ -1187,6 +1304,54 @@ function formatBytes(bytes: number): string {
 .btn-console:active {
   transform: translateY(0);
   box-shadow: 0 2px 4px rgba(102, 126, 234, 0.4);
+}
+
+/* Button variants */
+.btn-console.btn-start {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 6px rgba(16, 185, 129, 0.4);
+}
+
+.btn-console.btn-start:hover {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  box-shadow: 0 6px 12px rgba(16, 185, 129, 0.6);
+}
+
+.btn-console.btn-open {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 6px rgba(102, 126, 234, 0.4);
+}
+
+.btn-console.btn-open:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.6);
+}
+
+.btn-console.btn-stop {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 4px 6px rgba(239, 68, 68, 0.4);
+}
+
+.btn-console.btn-stop:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  box-shadow: 0 6px 12px rgba(239, 68, 68, 0.6);
+}
+
+.btn-console.btn-loading {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 4px 6px rgba(245, 158, 11, 0.4);
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-console:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-console:disabled:hover {
+  transform: none;
 }
 
 @media (max-width: 768px) {

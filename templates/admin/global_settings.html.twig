@@ -1,0 +1,245 @@
+{% extends 'base.html.twig' %}
+{% block title %}Paramètres Globaux{% endblock %}
+{% block page_title %}⚙️ Paramètres Globaux{% endblock %}
+{% block page_subtitle_content %}Administration système - Contrôle du serveur Admin Console{% endblock %}
+
+{% block content %}
+<div style="max-width:760px">
+    {# Admin Console Control #}
+    <div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:28px;margin-bottom:20px">
+        <div style="margin-bottom:24px">
+            <h2 style="font-size:16px;font-weight:600;margin-bottom:8px;color:var(--color-text-primary)">
+                🚀 Admin Console (Frontend Vue 3)
+            </h2>
+            <p style="font-size:13px;color:var(--color-text-secondary);margin:0">
+                Gérez le serveur du projet Admin Console (frontend). 
+                Cliquez ci-dessous pour démarrer ou arrêter le serveur.
+            </p>
+        </div>
+
+        <div id="admin-console-status" style="background:var(--color-bg-secondary);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px;font-size:13px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span id="status-icon" style="font-size:16px">⏳</span>
+                <span id="status-text" style="font-weight:500">Vérification de l'état...</span>
+            </div>
+            <div id="status-details" style="font-size:12px;color:var(--color-text-secondary);margin-top:8px"></div>
+        </div>
+
+        <div id="button-container" style="display:flex;gap:10px;flex-wrap:wrap">
+            <button id="btn-start" type="button" onclick="startAdminConsole()" style="padding:10px 16px;background:#10b981;color:white;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;display:none" title="Démarrer le serveur Admin Console">
+                ▶️ Démarrer Admin Console
+            </button>
+            <button id="btn-open" type="button" onclick="openAdminConsole()" style="padding:10px 16px;background:#185FA5;color:white;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;display:none" title="Ouvrir l'application Admin Console">
+                🚀 Ouvrir Admin Console
+            </button>
+            <button id="btn-stop" type="button" onclick="stopAdminConsole()" style="padding:10px 16px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;display:none" title="Arrêter le serveur Admin Console">
+                ⏹️ Arrêter Admin Console
+            </button>
+        </div>
+    </div>
+
+    {# Information Système #}
+    <div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:28px">
+        <h2 style="font-size:16px;font-weight:600;margin-bottom:16px;color:var(--color-text-primary)">
+            ℹ️ Informations Système
+        </h2>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div style="background:var(--color-bg-secondary);border-radius:6px;padding:12px">
+                <div style="font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600;margin-bottom:4px">Utilisateur</div>
+                <div style="font-size:13px;color:var(--color-text-primary);font-weight:500">{{ user.username }}</div>
+                <div style="font-size:11px;color:var(--color-text-secondary);margin-top:4px">{{ user.email }}</div>
+            </div>
+
+            <div style="background:var(--color-bg-secondary);border-radius:6px;padding:12px">
+                <div style="font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600;margin-bottom:4px">Rôle</div>
+                <div style="font-size:13px;color:#15803d;font-weight:500">🛡️ Admin Global</div>
+            </div>
+
+            <div style="background:var(--color-bg-secondary);border-radius:6px;padding:12px">
+                <div style="font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600;margin-bottom:4px">Serveur Vue 3</div>
+                <div style="font-size:13px;color:var(--color-text-primary);font-weight:500">Port: <code style="background:var(--color-bg-primary);padding:2px 6px;border-radius:3px">5173</code></div>
+            </div>
+
+            <div style="background:var(--color-bg-secondary);border-radius:6px;padding:12px">
+                <div style="font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600;margin-bottom:4px">URL</div>
+                <div style="font-size:13px"><a href="http://localhost:5173" target="_blank" style="color:#185FA5;text-decoration:none;font-weight:500">http://localhost:5173</a></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let adminConsoleStatus = {
+    running: false,
+    url: 'http://localhost:5173'
+};
+
+const CSRF_TOKEN = '{{ csrf_token("admin_console_control") }}';
+
+// Vérifier l'état au chargement
+document.addEventListener('DOMContentLoaded', async () => {
+    await checkAdminConsoleStatus();
+    setInterval(checkAdminConsoleStatus, 5000); // Vérifier tous les 5 secondes
+});
+
+async function checkAdminConsoleStatus() {
+    try {
+        const response = await fetch('{{ path('admin_global_settings_status') }}');
+        if (response.ok) {
+            const data = await response.json();
+            adminConsoleStatus.running = data.running;
+            adminConsoleStatus.url = data.url;
+            updateUI();
+        } else {
+            showError('Erreur lors de la vérification du statut');
+        }
+    } catch (error) {
+        console.error('Error checking status:', error);
+        showError('Erreur de connexion');
+    }
+}
+
+async function startAdminConsole() {
+    const btnStart = document.getElementById('btn-start');
+    const originalText = btnStart.textContent;
+    btnStart.textContent = '⟳ Démarrage...';
+    btnStart.disabled = true;
+
+    try {
+        const response = await fetch('{{ path('admin_global_settings_start') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': CSRF_TOKEN
+            }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showSuccess('Admin Console démarré avec succès');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            await checkAdminConsoleStatus();
+        } else {
+            showError(data.message || 'Erreur lors du démarrage');
+        }
+    } catch (error) {
+        showError('Erreur: ' + error.message);
+    } finally {
+        btnStart.textContent = originalText;
+        btnStart.disabled = false;
+    }
+}
+
+async function stopAdminConsole() {
+    if (!confirm('Êtes-vous sûr de vouloir arrêter le serveur Admin Console ?')) {
+        return;
+    }
+
+    const btnStop = document.getElementById('btn-stop');
+    const originalText = btnStop.textContent;
+    btnStop.textContent = '⟳ Arrêt...';
+    btnStop.disabled = true;
+
+    try {
+        const response = await fetch('{{ path('admin_global_settings_stop') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': CSRF_TOKEN
+            }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showSuccess('Admin Console arrêté avec succès');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await checkAdminConsoleStatus();
+        } else {
+            showError(data.message || 'Erreur lors de l\'arrêt');
+        }
+    } catch (error) {
+        showError('Erreur: ' + error.message);
+    } finally {
+        btnStop.textContent = originalText;
+        btnStop.disabled = false;
+    }
+}
+
+function openAdminConsole() {
+    window.open(adminConsoleStatus.url, '_blank');
+}
+
+function updateUI() {
+    const statusIcon = document.getElementById('status-icon');
+    const statusText = document.getElementById('status-text');
+    const statusDetails = document.getElementById('status-details');
+    const btnStart = document.getElementById('btn-start');
+    const btnOpen = document.getElementById('btn-open');
+    const btnStop = document.getElementById('btn-stop');
+
+    // Réinitialiser
+    btnStart.style.display = 'none';
+    btnOpen.style.display = 'none';
+    btnStop.style.display = 'none';
+
+    if (adminConsoleStatus.running) {
+        statusIcon.textContent = '✅';
+        statusText.textContent = 'Admin Console est EN COURS D\'EXÉCUTION';
+        statusDetails.innerHTML = `<strong>URL:</strong> <a href="${adminConsoleStatus.url}" target="_blank" style="color:#185FA5">${adminConsoleStatus.url}</a>`;
+        btnOpen.style.display = 'inline-block';
+        btnStop.style.display = 'inline-block';
+    } else {
+        statusIcon.textContent = '⏹️';
+        statusText.textContent = 'Admin Console est ARRÊTÉ';
+        statusDetails.textContent = 'Le serveur n\'est pas en cours d\'exécution. Cliquez sur "Démarrer" pour le lancer.';
+        btnStart.style.display = 'inline-block';
+    }
+}
+
+function showSuccess(message) {
+    const status = document.getElementById('admin-console-status');
+    const originalBg = status.style.background;
+    status.style.background = '#d1fae5';
+    status.style.borderColor = '#10b981';
+    
+    const icon = document.getElementById('status-icon');
+    const text = document.getElementById('status-text');
+    const originalIcon = icon.textContent;
+    const originalText = text.textContent;
+    
+    icon.textContent = '✓';
+    text.textContent = message;
+    
+    setTimeout(() => {
+        status.style.background = originalBg;
+        status.style.borderColor = '';
+        icon.textContent = originalIcon;
+        text.textContent = originalText;
+    }, 3000);
+}
+
+function showError(message) {
+    const status = document.getElementById('admin-console-status');
+    const originalBg = status.style.background;
+    status.style.background = '#fee2e2';
+    status.style.borderColor = '#ef4444';
+    
+    const icon = document.getElementById('status-icon');
+    const text = document.getElementById('status-text');
+    const originalIcon = icon.textContent;
+    const originalText = text.textContent;
+    
+    icon.textContent = '⚠️';
+    text.textContent = message;
+    
+    setTimeout(() => {
+        status.style.background = originalBg;
+        status.style.borderColor = '';
+        icon.textContent = originalIcon;
+        text.textContent = originalText;
+    }, 4000);
+}
+</script>
+{% endblock %}
+

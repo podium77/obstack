@@ -98,6 +98,99 @@ curl -X GET http://localhost:8000/api/admin/database-connections \
   -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc..."
 ```
 
+### 🛡️ Authentification Admin Global
+
+L'**Admin Global** est un utilisateur système avec accès complet, sans limitation d'entreprise.
+
+#### Créer un Admin Global
+
+```bash
+php bin/console app:user:create-admin
+```
+
+Ou en non-interactif :
+
+```bash
+php bin/console app:user:create-admin \
+  --email=admin@obstack.local \
+  --password=SecurePassword123 \
+  --name="Administrator"
+```
+
+#### Se connecter en tant qu'Admin Global
+
+**Via Interface Web** (formulaire de login Symfony) :
+1. Remplissez **Identifiant** : `admin` (ou votre email)
+2. Remplissez **Mot de passe** : Le mot de passe défini
+3. ☑️ Cochez la case **"Se connecter comme Admin Global"** (avec icône 🛡️)
+4. Cliquez **Se connecter**
+
+**Remarque** : Cette case n'est visible que pour les admins globaux. Les utilisateurs normaux ne peuvent pas y accéder.
+
+#### Caractéristiques Admin Global
+
+| Propriété | Valeur |
+|-----------|--------|
+| **Username** | `admin` (fixe) |
+| **Rôles** | `ROLE_GLOBAL_ADMIN`, `ROLE_ADMIN`, `ROLE_SUPERADMIN` |
+| **Entreprise** | Aucune (pas de limitation) |
+| **Accès** | Système complet + Dashboard Global |
+| **Permissions** | Tous les endpoints `#[IsGranted('ROLE_ADMIN')]` |
+
+#### Dashboard Admin Global
+
+Après connexion en tant qu'Admin Global, vous êtes automatiquement redirigé vers le **Dashboard Admin Global** à l'URL : `/dashboard`
+
+Ce dashboard offre :
+- ✅ **Accès système complet** sans limitation d'entreprise
+- ✅ **Admin Console** pour gérer les configurations système
+- ✅ **Vue globale** des entreprises en base
+- ✅ **Création d'instances** optionnelle (pour test)
+- ✅ **Permissions de superadmin** sur toutes les ressources
+
+**Remarque Important** : Les admins globaux peuvent créer une nouvelle instance obstack en cliquant sur "Créer une Instance" depuis le dashboard, mais n'y sont pas obligés. Contrairement aux utilisateurs normaux qui doivent créer une entreprise pour accéder à l'application, les admins globaux peuvent ignorer complètement cette étape.
+
+### Outre-passer la Création d'Instance (Admin Global)
+
+Si vous êtes connecté en tant qu'Admin Global et accédez à la page `/register` (création d'instance) :
+- ✅ Vous êtes **automatiquement redirigé** vers le Dashboard
+- ❌ La création d'instance est **désactivée** pour les admins globaux
+- ✅ Vous accédez **directement** au système sans configuration d'entreprise
+
+Cette protection empêche les admins globaux de créer involontairement une instance en double.
+
+#### Authentification API (Admin Global)
+
+Les admins globaux peuvent aussi s'authentifier via l'API JSON :
+
+```bash
+curl -X POST http://localhost:8000/api/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "admin",
+    "password": "SecurePassword123"
+  }'
+```
+
+Réponse:
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "refreshToken": "...",
+    "expiresAt": "2026-07-02T13:00:00+00:00",
+    "expiresIn": 3600
+  },
+  "user": {
+    "id": 1,
+    "email": "admin@obstack.local",
+    "displayName": "Administrator",
+    "isGlobalAdmin": true
+  }
+}
+```
+
 ---
 
 ## 📍 Endpoints Principaux

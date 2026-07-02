@@ -2,8 +2,10 @@
 namespace App\Security;
 
 use App\Entity\CompanyUser;
+use App\Entity\LocalUser;
 use App\Repository\CompanyRepository;
 use App\Repository\CompanyUserRepository;
+use App\Repository\LocalUserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -37,6 +39,7 @@ class MultiTenantAuthenticator extends AbstractAuthenticator
     public function __construct(
         private readonly CompanyRepository      $companyRepo,
         private readonly CompanyUserRepository  $userRepo,
+        private readonly LocalUserRepository    $localUserRepo,
         private readonly UserPasswordHasherInterface $hasher,
         private readonly RouterInterface        $router,
         private readonly EntityManagerInterface $em,
@@ -65,8 +68,24 @@ class MultiTenantAuthenticator extends AbstractAuthenticator
         $username    = trim($request->request->get('username', ''));
         $password    = $request->request->get('password', '');
         $companySlug = trim($request->request->get('company_slug', ''));
+        $adminMode   = (bool) $request->request->get('admin_global_mode', false);
         $csrf        = $request->request->get('_csrf_token', '');
 
+        // Mode Admin Global - Authentifier comme LocalUser (admin global)
+        if ($adminMode) {
+            return new Passport(
+                new UserBadge("global::{$username}", function (string $identifier) use ($password, $username) {
+                    return $this->loadGlobalAdminUser($username, $password);
+                }),
+                new PasswordCredentials($password),
+                [
+                    new CsrfTokenBadge('authenticate', $csrf),
+                    new RememberMeBadge(),
+                ]
+            );
+        }
+
+        // Mode Normal - Authentifier comme CompanyUser avec company_slug
         // Stocker le slug en session pour les rechargements
         if ($companySlug) {
             $request->getSession()->set('company_slug', $companySlug);
@@ -257,6 +276,47 @@ class MultiTenantAuthenticator extends AbstractAuthenticator
         }
 
         $this->em->flush();
+        return $user;
+    }
+
+    /**
+     * Authentifie un utilisateur LocalUser (admin global) sans entreprise.
+     * 
+     * @throws CustomUserMessageAuthenticationException
+     */
+    private function loadGlobalAdminUser(string $username, string $password): LocalUser
+    {
+        // Chercher l'utilisateur par username ou email
+        $user = $this->localUserRepo->findOneBy(['username' => $username, 'active' => true]);
+        
+        if (!$user) {
+            $user = $this->localUserRepo->findOneBy(['email' => $username, 'active' => true]);
+        }
+
+        // Vérifier que l'utilisateur existe et est admin global
+        if (!$user || !$user->isGlobalAdmin()) {
+            throw new CustomUserMessageAuthenticationException(
+                'Accès refusé. Seul un administrateur global peut utiliser ce mode de connexion.'
+            );
+        }
+
+        // Vérifier le mot de passe
+        if (!$user->getPassword()) {
+            throw new CustomUserMessageAuthenticationException(
+                'Ce compte n\'a pas de mot de passe local.'
+            );
+        }
+
+        if (!$this->hasher->isPasswordValid($user, $password)) {
+            throw new CustomUserMessageAuthenticationException(
+                'Identifiant ou mot de passe incorrect.'
+            );
+        }
+
+        // Mettre à jour lastLoginAt
+        $user->setLastLoginAt(new \DateTimeImmutable());
+        $this->em->flush();
+
         return $user;
     }
 

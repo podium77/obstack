@@ -2,6 +2,7 @@
 namespace App\Controller;
 
 use App\Entity\Environment;
+use App\Entity\LocalUser;
 use App\Repository\AlertRepository;
 use App\Repository\ApplicationRepository;
 use App\Repository\MetricSnapshotRepository;
@@ -31,6 +32,16 @@ class DashboardController extends AbstractController
 #[Route('/dashboard', name: 'dashboard')]
 public function index(Request $request): Response
 {
+    $symfonyUser = $this->getUser();
+    
+    // ── Admin Global : vue système sans limitation d'entreprise ──────
+    if ($symfonyUser instanceof LocalUser && $symfonyUser->isGlobalAdmin()) {
+        return $this->render('dashboard/admin_global.html.twig', [
+            'user' => $symfonyUser,
+            'companyCount' => $this->companyRepo->count([]),
+        ]);
+    }
+    
     // ── Superadmin : vue globale toutes compagnies ──────────────────
     if ($this->isGranted('ROLE_SUPERADMIN')) {
         $allEnvironments = []; // ou charge tout depuis un repo global

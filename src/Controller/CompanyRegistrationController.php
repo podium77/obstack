@@ -1,6 +1,7 @@
 <?php
 namespace App\Controller;
 
+use App\Entity\LocalUser;
 use App\Service\CompanyProvisioningService;
 use App\Repository\CompanyRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,9 +23,17 @@ class CompanyRegistrationController extends AbstractController
     public function index(): Response
     {
         $user = $this->getUser();
+        
+        // Si admin global, rediriger directement vers le dashboard
+        if ($user instanceof LocalUser && $user->isGlobalAdmin()) {
+            return $this->redirectToRoute('dashboard');
+        }
+        
+        // Si utilisateur avec entreprise, rediriger vers le dashboard
         if ($user && $user->getCompany() !== null) {
             return $this->redirectToRoute('dashboard');
         }
+        
         return $this->render('company/register.html.twig');
     }
 
@@ -33,6 +42,14 @@ class CompanyRegistrationController extends AbstractController
     public function submit(Request $request): Response
     {
         $user = $this->getUser();
+        
+        // Si admin global, refuser la création d'instance
+        if ($user instanceof LocalUser && $user->isGlobalAdmin()) {
+            $this->addFlash('error', 'En tant qu\'administrateur global, vous n\'avez pas besoin de créer une instance.');
+            return $this->redirectToRoute('dashboard');
+        }
+        
+        // Si utilisateur avec entreprise, rediriger vers le dashboard
         if ($user && $user->getCompany() !== null) {
             return $this->redirectToRoute('dashboard');
         }

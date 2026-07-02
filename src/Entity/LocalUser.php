@@ -80,9 +80,9 @@ class LocalUser implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $roles = [];
         
-        // Si admin global, donner tous les rôles
+        // Si admin global, donner tous les rôles système
         if ($this->isGlobalAdmin) {
-            return ['ROLE_ADMIN', 'ROLE_USER'];
+            return ['ROLE_GLOBAL_ADMIN', 'ROLE_ADMIN', 'ROLE_SUPERADMIN', 'ROLE_USER'];
         }
         
         // Sinon, récupérer du rôle RBAC
