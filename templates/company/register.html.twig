@@ -315,6 +315,122 @@
             </div>
         </div>
 
+        {# Configuration IA (Ollama) #}
+        <div style="background:#f8f9fb;border:1px solid #e2e6ea;border-radius:8px;padding:16px;margin-bottom:16px">
+            <div style="font-size:13.5px;font-weight:500;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+                <i class="ti ti-brain" style="color:#185FA5;font-size:18px"></i>
+                Infrastructure centralisée Ollama
+            </div>
+            <div class="form-hint" style="margin-bottom:14px">
+                LLM centralisé pour l'analyse et la remédiation. Ne s'exécute jamais sur les agents.
+            </div>
+
+            <div class="info-box">
+                <i class="ti ti-info-circle"></i>
+                Sélectionnez le mode de gestion de l'IA pour cette instance.
+            </div>
+
+            <div class="form-group">
+                <label style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin-bottom:10px">Mode d'IA</label>
+                <div style="display:flex;gap:12px;margin-top:10px">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;padding:12px;border:2px solid #e2e6ea;border-radius:7px;background:#fafbfc;transition:all .12s" id="ai-mode-none-label">
+                        <input type="radio" name="ai_mode" value="none" checked onchange="updateAISections()" style="cursor:pointer">
+                        <div>
+                            <div style="font-size:13px;font-weight:500;color:#1a1d23">Aucun</div>
+                            <div style="font-size:11px;color:#9ca3af">Ne pas utiliser d'IA</div>
+                        </div>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;padding:12px;border:2px solid #e2e6ea;border-radius:7px;background:#fafbfc;transition:all .12s" id="ai-mode-existing-label">
+                        <input type="radio" name="ai_mode" value="existing" onchange="updateAISections()" style="cursor:pointer">
+                        <div>
+                            <div style="font-size:13px;font-weight:500;color:#1a1d23">Existant</div>
+                            <div style="font-size:11px;color:#9ca3af">Infrastructure active</div>
+                        </div>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;padding:12px;border:2px solid #e2e6ea;border-radius:7px;background:#fafbfc;transition:all .12s" id="ai-mode-deployed-label">
+                        <input type="radio" name="ai_mode" value="deployed" onchange="updateAISections()" style="cursor:pointer">
+                        <div>
+                            <div style="font-size:13px;font-weight:500;color:#1a1d23">Déployer</div>
+                            <div style="font-size:11px;color:#9ca3af">Créer une VM</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            {# Mode 1: Existing Infrastructure #}
+            <div id="ai-existing-section" style="display:none;margin-top:16px;padding:14px;background:#fff;border:1px solid #e2e6ea;border-radius:6px">
+                <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Configuration infrastructure existante</div>
+                <div class="form-group">
+                    <label>URL API Ollama <span class="required">*</span></label>
+                    <input type="url" name="ai_existing_api_url" placeholder="http://ollama.exemple.com:11434">
+                </div>
+                <div class="form-group">
+                    <label>Modèle LLM <span class="required">*</span></label>
+                    <select name="ai_existing_model">
+                        <option value="">-- Sélectionner un modèle --</option>
+                        <option value="qwen3:4b">Qwen3 4B (rapide, ressources légères)</option>
+                        <option value="qwen3:8b">Qwen3 8B (équilibrée, meilleure qualité)</option>
+                    </select>
+                </div>
+            </div>
+
+            {# Mode 2: Deploy New #}
+            <div id="ai-deployed-section" style="display:none;margin-top:16px;padding:14px;background:#fff;border:1px solid #e2e6ea;border-radius:6px">
+                <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Configurer le déploiement</div>
+                
+                <div class="form-group">
+                    <label>Modèle LLM <span class="required">*</span></label>
+                    <select name="ai_deployed_model">
+                        <option value="">-- Sélectionner un modèle --</option>
+                        <option value="qwen3:4b">Qwen3 4B (rapide, ressources légères)</option>
+                        <option value="qwen3:8b">Qwen3 8B (équilibrée, meilleure qualité)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Hyperviseur cible <span class="required">*</span></label>
+                    <select name="ai_deployed_hypervisor" onchange="updateHypervisorPlaceholder()">
+                        <option value="">-- Sélectionner un hyperviseur --</option>
+                        <option value="proxmox">Proxmox VE</option>
+                        <option value="vmware">VMware vSphere</option>
+                        <option value="nutanix">Nutanix Prism</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>URL de l'hyperviseur <span class="required">*</span></label>
+                    <input type="url" name="ai_deployed_hypervisor_url" id="hypervisor-url-input" placeholder="https://proxmox.exemple.com:8006">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nom de la VM <span class="required">*</span></label>
+                        <input type="text" name="ai_deployed_vm_name" placeholder="ollama-ia-prod">
+                    </div>
+                    <div class="form-group">
+                        <label>RAM (MB) <span class="required">*</span></label>
+                        <input type="number" name="ai_deployed_vm_memory" value="4096" min="2048" step="512">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>CPU cores <span class="required">*</span></label>
+                        <input type="number" name="ai_deployed_vm_cores" value="2" min="1" max="16">
+                    </div>
+                    <div class="form-group">
+                        <label>Disque (GB) <span class="required">*</span></label>
+                        <input type="number" name="ai_deployed_vm_disk" value="50" min="20">
+                    </div>
+                </div>
+
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                    <input type="checkbox" name="ai_deployed_auto_start" checked style="cursor:pointer">
+                    <span style="font-size:13px;color:#374151">Démarrage automatique + redémarrage en cas de défaillance</span>
+                </label>
+            </div>
+        </div>
+
         {# Monitoring Modules #}
         <div class="toggle-section">
             <div class="toggle-header">
@@ -400,6 +516,49 @@ function toggleSection(id, show) {
     }
 }
 
+function updateAISections() {
+    var aiMode = document.querySelector('input[name="ai_mode"]:checked');
+    var existingSection = document.getElementById('ai-existing-section');
+    var deployedSection = document.getElementById('ai-deployed-section');
+    var existingLabel = document.getElementById('ai-mode-existing-label');
+    var deployedLabel = document.getElementById('ai-mode-deployed-label');
+
+    var mode = aiMode ? aiMode.value : 'none';
+    
+    if (mode === 'existing') {
+        if (existingSection) existingSection.style.display = 'block';
+        if (deployedSection) deployedSection.style.display = 'none';
+        if (existingLabel) existingLabel.style.borderColor = '#185FA5';
+        if (deployedLabel) deployedLabel.style.borderColor = '#e2e6ea';
+    } else if (mode === 'deployed') {
+        if (existingSection) existingSection.style.display = 'none';
+        if (deployedSection) deployedSection.style.display = 'block';
+        if (existingLabel) existingLabel.style.borderColor = '#e2e6ea';
+        if (deployedLabel) deployedLabel.style.borderColor = '#185FA5';
+    } else {
+        if (existingSection) existingSection.style.display = 'none';
+        if (deployedSection) deployedSection.style.display = 'none';
+        if (existingLabel) existingLabel.style.borderColor = '#e2e6ea';
+        if (deployedLabel) deployedLabel.style.borderColor = '#e2e6ea';
+    }
+}
+
+function updateHypervisorPlaceholder() {
+    var hypervisorSelect = document.querySelector('select[name="ai_deployed_hypervisor"]');
+    var urlInput = document.getElementById('hypervisor-url-input');
+    
+    if (!hypervisorSelect || !urlInput) return;
+    
+    var value = hypervisorSelect.value;
+    var placeholders = {
+        'proxmox': 'https://proxmox.exemple.com:8006',
+        'vmware': 'https://vcenter.exemple.com',
+        'nutanix': 'https://prism.exemple.com:9440'
+    };
+    
+    urlInput.placeholder = placeholders[value] || 'https://hyperviseur.exemple.com';
+}
+
 function updateColorPreview(val) {
     var preview = document.getElementById('color-preview');
     if (preview) {
@@ -462,6 +621,17 @@ function buildSummary() {
         });
         var modulesValue = modules.length ? modules.join(', ') : 'Aucun';
 
+        // AI Configuration
+        var aiValue = 'Aucun';
+        var aiMode = f.querySelector('input[name="ai_mode"]:checked');
+        if (aiMode) {
+            if (aiMode.value === 'existing') {
+                aiValue = 'Mode 1 (Existant): ' + get('ai_existing_model') + ' — ' + get('ai_existing_api_url');
+            } else if (aiMode.value === 'deployed') {
+                aiValue = 'Mode 2 (Déployer): ' + get('ai_deployed_model') + ' (' + get('ai_deployed_hypervisor') + ' @ ' + get('ai_deployed_hypervisor_url') + ')';
+            }
+        }
+
         var slugDisplay = document.getElementById('slug-display');
         var slugText = slugDisplay && slugDisplay.textContent ? slugDisplay.textContent : '—';
 
@@ -473,6 +643,7 @@ function buildSummary() {
             ['LDAP', ldapValue],
             ['PyRCA', pyrcaValue],
             ['Knowledge Graph', kgValue],
+            ['Configuration IA', aiValue],
             ['Modules de monitoring', modulesValue],
             ['Env. par défaut', 'Créé automatiquement (opérationnel immédiatement)']
         ];

@@ -107,6 +107,17 @@ class CompanyRegistrationController extends AbstractController
                     'database' => $data['kg_database'] ?? 'obstack',
                 ],
                 'enabled_modules' => $data['enabled_modules'] ?? [],
+                'ai_mode'         => $data['ai_mode'] ?? 'none',
+                'ai_existing_api_url'    => $data['ai_existing_api_url'] ?? null,
+                'ai_existing_model'      => $data['ai_existing_model'] ?? null,
+                'ai_deployed_model'      => $data['ai_deployed_model'] ?? null,
+                'ai_deployed_hypervisor' => $data['ai_deployed_hypervisor'] ?? null,
+                'ai_deployed_hypervisor_url' => $data['ai_deployed_hypervisor_url'] ?? null,
+                'ai_deployed_vm_name'    => $data['ai_deployed_vm_name'] ?? null,
+                'ai_deployed_vm_memory'  => $data['ai_deployed_vm_memory'] ?? 4096,
+                'ai_deployed_vm_cores'   => $data['ai_deployed_vm_cores'] ?? 2,
+                'ai_deployed_vm_disk'    => $data['ai_deployed_vm_disk'] ?? 50,
+                'ai_deployed_auto_start' => isset($data['ai_deployed_auto_start']),
             ]);
 
             return $this->render('company/register_success.html.twig', [
@@ -149,6 +160,40 @@ class CompanyRegistrationController extends AbstractController
         if (!filter_var($data['admin_email'] ?? '', FILTER_VALIDATE_EMAIL)) {
             $errors['admin_email'] = 'Email invalide.';
         }
+
+        // Validation de l'IA si mode != none
+        $aiMode = $data['ai_mode'] ?? 'none';
+        
+        if ($aiMode === 'existing') {
+            if (empty($data['ai_existing_api_url'])) {
+                $errors['ai_existing_api_url'] = 'L\'URL de l\'API Ollama est requise.';
+            }
+            if (empty($data['ai_existing_model'])) {
+                $errors['ai_existing_model'] = 'Le modèle LLM doit être sélectionné.';
+            }
+        } elseif ($aiMode === 'deployed') {
+            if (empty($data['ai_deployed_model'])) {
+                $errors['ai_deployed_model'] = 'Le modèle LLM doit être sélectionné.';
+            }
+            if (empty($data['ai_deployed_hypervisor'])) {
+                $errors['ai_deployed_hypervisor'] = 'L\'hyperviseur doit être sélectionné.';
+            }
+            if (empty($data['ai_deployed_hypervisor_url'])) {
+                $errors['ai_deployed_hypervisor_url'] = 'L\'URL de l\'hyperviseur est requise.';
+            }
+            if (empty($data['ai_deployed_vm_name'])) {
+                $errors['ai_deployed_vm_name'] = 'Le nom de la VM est requis.';
+            }
+            $memory = (int)($data['ai_deployed_vm_memory'] ?? 0);
+            if ($memory < 2048) {
+                $errors['ai_deployed_vm_memory'] = 'La RAM doit être >= 2048 MB.';
+            }
+            $disk = (int)($data['ai_deployed_vm_disk'] ?? 0);
+            if ($disk < 20) {
+                $errors['ai_deployed_vm_disk'] = 'Le disque doit être >= 20 GB.';
+            }
+        }
+
         return $errors;
     }
 

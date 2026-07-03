@@ -5,8 +5,10 @@ use App\Entity\Company;
 use App\Entity\CompanyUser;
 use App\Entity\Environment;
 use App\Entity\EnvironmentUser;
+use App\Entity\Application;
 use App\Enum\EnvironmentType;
 use App\Enum\UserEnvironmentRole;
+use App\Service\AI\AIClusterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -25,6 +27,7 @@ class CompanyProvisioningService
         private readonly EntityManagerInterface      $em,
         private readonly UserPasswordHasherInterface $hasher,
         private readonly AgentInstallScriptGenerator $scriptGenerator,
+        private readonly AIClusterService            $aiClusterService,
         private readonly LoggerInterface             $logger,
     ) {}
 
@@ -40,7 +43,9 @@ class CompanyProvisioningService
      *   ldap_bind_dn?, ldap_bind_password?,
      *   ldap_user_base_dn?, ldap_group_base_dn?,
      *   rca_enabled?, kg_enabled?,
-     *   rca_config?, kg_config?
+     *   rca_config?, kg_config?,
+     *   ai_enabled?, ai_mode?, ai_existing_api_url?, ai_existing_model?,
+     *   ai_deployed_model?, ai_deployed_hypervisor?, ai_deployed_vm_*?
      * }
      */
     public function provision(array $data): array
@@ -57,7 +62,10 @@ class CompanyProvisioningService
             // 3. Créer l'environnement par défaut
             $defaultEnv = $this->createDefaultEnvironment($company, $superAdmin);
 
-            // 4. Générer le token agent initial pour l'environnement par défaut
+            // 4. Créer une application par défaut pour l'AICluster
+            $defaultApp = $this->createDefaultApplication($defaultEnv);
+
+            // 5. Générer le token agent initial pour l'environnement par défaut
             $agentToken = $this->createInitialAgentToken(
                 $defaultEnv,
                 $superAdmin,
@@ -67,17 +75,24 @@ class CompanyProvisioningService
             $this->em->persist($company);
             $this->em->persist($superAdmin);
             $this->em->persist($defaultEnv);
+            $this->em->persist($defaultApp);
             $this->em->persist($agentToken);
             $this->em->flush();
             $this->em->commit();
 
             $this->logger->info("Entreprise provisionnée: {$company->getName()} (slug: {$company->getSlug()})");
 
+            // 6. Configurer l'IA après le commit (si mode != none)
+            if (($data['ai_mode'] ?? 'none') !== 'none') {
+                $this->configureAI($defaultApp, $superAdmin, $data);
+            }
+
             return [
                 'success'       => true,
                 'company'       => $company,
                 'super_admin'   => $superAdmin,
                 'default_env'   => $defaultEnv,
+                'default_app'   => $defaultApp,
                 'agent_token'   => $agentToken,
                 'install_script'=> $agentToken->getInstallScript(),
             ];
@@ -301,5 +316,95 @@ class CompanyProvisioningService
         $slug = strtolower(trim($input));
         $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
         return trim($slug, '-');
+    }
+
+    private function createDefaultApplication(Environment $env): Application
+    {
+        $app = new Application();
+        $app->setName("Application par défaut");
+        $app->setDescription("Application créée par défaut lors du provisioning de l'entreprise");
+        $app->setEnvironment($env);
+
+        return $app;
+    }
+
+    private function configureAI(Application $app, CompanyUser $creator, array $data): void
+    {
+        try {
+            $aiMode = $data['ai_mode'] ?? 'none';
+
+            if ($aiMode === 'existing') {
+                // Mode 1: Infrastructure existante
+                // Créer une AIInfrastructure d'abord (ou utiliser existante)
+                $apiUrl = $data['ai_existing_api_url'] ?? null;
+                $model = $data['ai_existing_model'] ?? null;
+
+                if ($apiUrl && $model) {
+                    // Pour simplifier, créer une nouvelle AIInfrastructure dans la Company
+                    $infrastructure = new \App\Entity\AIInfrastructure();
+                    $infrastructure->setName("Infrastructure - " . $app->getEnvironment()->getCompany()->getName());
+                    $infrastructure->setMode('existing');
+                    $infrastructure->setProvider('ollama');
+                    $infrastructure->setApiUrl($apiUrl);
+                    $infrastructure->setModel($model);
+                    $infrastructure->setStatus('active');
+                    $infrastructure->setCompany($app->getEnvironment()->getCompany());
+
+                    $this->em->persist($infrastructure);
+                    $this->em->flush();
+
+                    // Configurer le cluster avec cette infrastructure
+                    $this->aiClusterService->configureAICluster(
+                        $app,
+                        'existing',
+                        $model,
+                        $infrastructure->getId(),
+                        null
+                    );
+                }
+
+            } elseif ($aiMode === 'deployed') {
+                // Mode 2: Déploiement automatisé
+                $model = $data['ai_deployed_model'] ?? null;
+                $hypervisor = $data['ai_deployed_hypervisor'] ?? null;
+                $hypervisorUrl = $data['ai_deployed_hypervisor_url'] ?? null;
+                $vmName = $data['ai_deployed_vm_name'] ?? null;
+                $memory = (int)($data['ai_deployed_vm_memory'] ?? 4096);
+                $cores = (int)($data['ai_deployed_vm_cores'] ?? 2);
+                $disk = (int)($data['ai_deployed_vm_disk'] ?? 50);
+                $autoStart = isset($data['ai_deployed_auto_start']);
+
+                if ($model && $hypervisor && $hypervisorUrl && $vmName) {
+                    $deploymentConfig = [
+                        'hypervisor_provider' => $hypervisor,
+                        'hypervisor_url' => $hypervisorUrl,
+                        'vm_config' => [
+                            'name' => $vmName,
+                            'memory_mb' => $memory,
+                            'cpu_cores' => $cores,
+                            'disk_gb' => $disk,
+                        ],
+                        'auto_start' => $autoStart,
+                    ];
+
+                    $this->aiClusterService->configureAICluster(
+                        $app,
+                        'deployed',
+                        $model,
+                        null,
+                        $deploymentConfig
+                    );
+                }
+            }
+
+            $this->logger->info("AI cluster configured for application", [
+                'app_id' => $app->getId(),
+                'mode' => $aiMode
+            ]);
+
+        } catch (\Throwable $e) {
+            $this->logger->error("Failed to configure AI cluster: " . $e->getMessage());
+            // Ne pas lancer l'exception - le provisioning ne doit pas échouer si l'IA échoue
+        }
     }
 }

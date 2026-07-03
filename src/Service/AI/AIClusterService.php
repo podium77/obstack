@@ -3,9 +3,11 @@
 namespace App\Service\AI;
 
 use App\Entity\AICluster;
+use App\Entity\AIDeployment;
 use App\Entity\Application;
 use App\Entity\AIInfrastructure;
 use App\Message\AIClusterDeploymentMessage;
+use App\Message\AIDeploymentMessage;
 use App\Repository\AIClusterRepository;
 use App\Repository\AIInfrastructureRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,7 +27,8 @@ class AIClusterService
         private AIInfrastructureRepository $infrastructureRepository,
         private EntityManagerInterface $entityManager,
         private MessageBusInterface $messageBus,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private AIDeploymentService $deploymentService
     ) {}
 
     /**
@@ -206,11 +209,77 @@ class AIClusterService
         Application $app,
         ?string $aiModel,
         array $config
-    ) {
-        // Note: Ce serait appelé avec AIDeploymentService
-        // Pour le prototype, on retourne simplement null
-        // Une implémentation complète créerait une AIDeployment entity
-        return null;
+    ): AIDeployment {
+        try {
+            // Valider les infos requises
+            $hypervisorProvider = $config['hypervisor_provider'] ?? null;
+            $hypervisorUrl = $config['hypervisor_url'] ?? null;
+            $vmConfig = $config['vm_config'] ?? [];
+            $autoStart = $config['auto_start'] ?? true;
+
+            if (!$hypervisorProvider || !$hypervisorUrl || !$vmConfig || !$aiModel) {
+                throw new \InvalidArgumentException('Invalid deployment config: missing required fields');
+            }
+
+            $vmName = $vmConfig['name'] ?? 'ollama-vm';
+            $memory = (int)($vmConfig['memory_mb'] ?? 4096);
+            $cores = (int)($vmConfig['cpu_cores'] ?? 2);
+            $disk = (int)($vmConfig['disk_gb'] ?? 50);
+
+            // Construire les configs pour AIDeployment
+            $hypervisorConfig = [
+                'hypervisor_provider' => $hypervisorProvider,
+                'hypervisor_host' => $hypervisorUrl,  // URL est le host pour les API
+                'hypervisor_username' => $_ENV['HYPERVISOR_USERNAME'] ?? 'root',  // À passer en env vars
+                'hypervisor_password' => $_ENV['HYPERVISOR_PASSWORD'] ?? '',      // À passer en env vars
+                'proxmox_node' => $_ENV['PROXMOX_NODE'] ?? 'pve',
+                'vmware_datacenter' => $_ENV['VMWARE_DATACENTER'] ?? 'ha-datacenter',
+                'nutanix_cluster' => $_ENV['NUTANIX_CLUSTER'] ?? 'default',
+            ];
+
+            $vmConfigForDeployment = [
+                'name' => $vmName,
+                'memory' => $memory,
+                'cores' => $cores,
+                'disk_size' => $disk,
+            ];
+
+            // Créer l'entité AIDeployment
+            $deployment = new AIDeployment(
+                name: "Deployment - $vmName - " . date('Y-m-d H:i:s'),
+                hypervisorProvider: $hypervisorProvider,
+                hypervisorConfig: $hypervisorConfig,
+                vmConfig: $vmConfigForDeployment,
+                aiModel: $aiModel,
+                createdBy: $app->getEnvironment()->getCompany()->getUsers()->first(), // Utilisateur par défaut
+                company: $app->getEnvironment()->getCompany()
+            );
+
+            $deployment->setStatus('pending');
+            $deployment->addDeploymentLog('Deployment queued');
+
+            // Persister l'entité
+            $this->entityManager->persist($deployment);
+            $this->entityManager->flush();
+
+            $this->logger->info('AIDeployment created', [
+                'deployment_id' => $deployment->getId(),
+                'cluster_app_id' => $app->getId(),
+                'hypervisor' => $hypervisorProvider
+            ]);
+
+            // Dispatcher le message pour le traitement asynchrone
+            $this->messageBus->dispatch(new AIDeploymentMessage($deployment->getId()));
+
+            return $deployment;
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create AIDeployment', [
+                'error' => $e->getMessage(),
+                'app_id' => $app->getId()
+            ]);
+            throw $e;
+        }
     }
 
     /**
