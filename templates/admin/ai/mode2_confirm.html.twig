@@ -1,0 +1,277 @@
+{% extends "base.html.twig" %}
+
+{% block title %}Confirmer Mode 2 - Déploiement{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>
+                <i class="fa fa-check-circle"></i> Confirmer votre configuration
+            </h1>
+            <p class="text-muted">Vérifiez que tous les paramètres sont corrects avant le déploiement</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ path('admin_ai_mode2_wizard', {'step': 5}) }}" class="btn btn-secondary">
+                <i class="fa fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Hypervisor Config Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fa fa-server"></i> Configuration Hyperviseur
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-borderless mb-0">
+                        <tbody>
+                            <tr>
+                                <td style="width: 40%;"><strong>Fournisseur</strong></td>
+                                <td>
+                                    <span class="badge bg-primary">{{ wizardData.hypervisor_provider|upper }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Host/URL</strong></td>
+                                <td><code>{{ wizardData.hypervisor_host }}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Identifiant</strong></td>
+                                <td><code>{{ wizardData.hypervisor_username }}</code></td>
+                            </tr>
+                            {% if wizardData.proxmox_node %}
+                                <tr>
+                                    <td><strong>Nœud Proxmox</strong></td>
+                                    <td>{{ wizardData.proxmox_node }}</td>
+                                </tr>
+                            {% endif %}
+                            {% if wizardData.vmware_datacenter %}
+                                <tr>
+                                    <td><strong>Datacenter VMware</strong></td>
+                                    <td>{{ wizardData.vmware_datacenter }}</td>
+                                </tr>
+                            {% endif %}
+                            {% if wizardData.nutanix_cluster %}
+                                <tr>
+                                    <td><strong>Cluster Nutanix</strong></td>
+                                    <td>{{ wizardData.nutanix_cluster }}</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- VM Config Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fa fa-microchip"></i> Configuration Machine Virtuelle
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-borderless mb-0">
+                        <tbody>
+                            <tr>
+                                <td style="width: 40%;"><strong>Nom de la VM</strong></td>
+                                <td>
+                                    <span class="badge bg-info">{{ wizardData.vm_name }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Processeur(s)</strong></td>
+                                <td>
+                                    <i class="fa fa-microchip"></i> {{ wizardData.vm_cores }} 
+                                    {% if wizardData.vm_cores == 1 %}CPU{% else %}CPUs{% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Mémoire RAM</strong></td>
+                                <td>
+                                    <i class="fa fa-memory"></i> {{ (wizardData.vm_memory/1024)|round(1) }} GB
+                                    {% if wizardData.vm_memory < 4096 %}
+                                        <small class="text-warning">(⚠️ Minimum recommandé: 4 GB)</small>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Disque</strong></td>
+                                <td>
+                                    <i class="fa fa-hdd"></i> {{ wizardData.vm_disk }} GB
+                                    {% if wizardData.vm_disk < 30 %}
+                                        <small class="text-warning">(⚠️ Minimum recommandé: 50 GB)</small>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% if wizardData.vm_storage %}
+                                <tr>
+                                    <td><strong>Storage</strong></td>
+                                    <td>{{ wizardData.vm_storage }}</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- AI Model Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fa fa-brain"></i> Configuration IA
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-borderless mb-0">
+                        <tbody>
+                            <tr>
+                                <td style="width: 40%;"><strong>Modèle</strong></td>
+                                <td>
+                                    <span class="badge bg-success">{{ wizardData.ai_model }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fournisseur</strong></td>
+                                <td>Ollama (Open Source)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>API</strong></td>
+                                <td>
+                                    <code>http://&lt;vm_ip&gt;:11434</code>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Mode</strong></td>
+                                <td>
+                                    <span class="badge bg-warning">Mode 2 — Déploiement Automatisé</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Deployment Info -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fa fa-info-circle"></i> Informations Déploiement
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <strong>Nom du déploiement:</strong> 
+                        <span class="badge bg-secondary">{{ wizardData.deployment_name }}</span>
+                    </p>
+                    <p class="mb-0 text-muted small">
+                        Créé par: <strong>{{ app.user.email }}</strong><br>
+                        Date: <strong>{{ 'now'|date('d/m/Y H:i:s') }}</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar: Summary & Actions -->
+        <div class="col-lg-4">
+            <!-- Checklist -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fa fa-clipboard-check"></i> Checklist
+                    </h5>
+                </div>
+                <div class="card-body small">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="check1" disabled checked>
+                        <label class="form-check-label" for="check1">
+                            Hyperviseur configuré
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="check2" disabled checked>
+                        <label class="form-check-label" for="check2">
+                            Machine virtuelle configurée
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="check3" disabled checked>
+                        <label class="form-check-label" for="check3">
+                            Modèle IA sélectionné
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="check4" disabled checked>
+                        <label class="form-check-label" for="check4">
+                            Configuration validée
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Card -->
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fa fa-rocket"></i> Déploiement</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="alert alert-warning" role="alert">
+                            <i class="fa fa-warning"></i>
+                            <small>
+                                <strong>Le déploiement prendra 5-15 minutes</strong>
+                                <br>Vous devrez rester connecté ou recevoir des notifications.
+                            </small>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fa fa-check"></i> Déployer Maintenant
+                            </button>
+                            <a href="{{ path('admin_ai_mode2_wizard', {'step': 5}) }}" class="btn btn-outline-secondary">
+                                <i class="fa fa-arrow-left"></i> Retour à la Config
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Info Panels -->
+            <div class="card mt-4 border-info">
+                <div class="card-body small">
+                    <h6 class="card-title mb-2">
+                        <i class="fa fa-lightbulb"></i> Qu'est-ce qui va se passer ?
+                    </h6>
+                    <ol class="ps-3 mb-0">
+                        <li>Création de la VM sur l'hyperviseur</li>
+                        <li>Configuration du système</li>
+                        <li>Installation d'Ollama</li>
+                        <li>Téléchargement du modèle IA</li>
+                        <li>Tests et validation</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.table-borderless td {
+    border: none;
+    padding: 0.75rem 0;
+    vertical-align: middle;
+}
+
+.table-borderless tbody tr {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table-borderless tbody tr:last-child {
+    border-bottom: none;
+}
+</style>
+{% endblock %}

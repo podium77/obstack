@@ -1,0 +1,545 @@
+{% extends "base.html.twig" %}
+
+{% block title %}Mode 2 - Déploiement Automatisé{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb/Progress -->
+    <div class="row mb-5">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>
+                    <i class="fa fa-rocket"></i> Mode 2 — Déploiement Automatisé
+                </h1>
+                <a href="{{ path('admin_ai_dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fa fa-times"></i> Annuler
+                </a>
+            </div>
+            <p class="text-muted">Déployez automatiquement l'IA sur votre infrastructure hyperviseur</p>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="row mb-5">
+        <div class="col-md-12">
+            <div class="progress mb-3" style="height: 8px;">
+                {% set progress = (currentStep / 5) * 100 %}
+                <div class="progress-bar" role="progressbar" style="width: {{ progress }}%;"></div>
+            </div>
+            
+            <div class="row text-center">
+                {% for step in 1..5 %}
+                    <div class="col">
+                        <div class="step-indicator {% if step == currentStep %}active{% elseif step < currentStep %}completed{% endif %}">
+                            <div class="step-number">
+                                {% if step < currentStep %}
+                                    <i class="fa fa-check"></i>
+                                {% else %}
+                                    {{ step }}
+                                {% endif %}
+                            </div>
+                            <small class="text-muted d-block mt-2">
+                                {% if step == 1 %}Hyperviseur
+                                {% elseif step == 2 %}Credentials
+                                {% elseif step == 3 %}VM Config
+                                {% elseif step == 4 %}Modèle IA
+                                {% else %}Résumé
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Content -->
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            <div class="card">
+                <div class="card-body p-4">
+                    {{ form_start(form, {'class': 'needs-validation', 'novalidate': true}) }}
+
+                    <!-- Step 1: Hypervisor Selection -->
+                    {% if currentStep == 1 %}
+                        <h4 class="mb-4">
+                            <i class="fa fa-server"></i> Choisissez votre fournisseur d'infrastructure
+                        </h4>
+                        
+                        <div class="hypervisor-options mb-4">
+                            <div class="hypervisor-card">
+                                <input type="radio" name="hypervisor_provider" id="proxmox" value="proxmox" 
+                                       {% if wizardData.hypervisor_provider == 'proxmox' %}checked{% endif %}>
+                                <label for="proxmox" class="hypervisor-label">
+                                    <div class="hypervisor-icon">
+                                        <i class="fa fa-cube"></i>
+                                    </div>
+                                    <h5>Proxmox VE</h5>
+                                    <p>Infrastructure open-source haute performance</p>
+                                    <small>Support: KVM/LXC, API native, clustering</small>
+                                </label>
+                            </div>
+
+                            <div class="hypervisor-card">
+                                <input type="radio" name="hypervisor_provider" id="vmware" value="vmware"
+                                       {% if wizardData.hypervisor_provider == 'vmware' %}checked{% endif %}>
+                                <label for="vmware" class="hypervisor-label">
+                                    <div class="hypervisor-icon">
+                                        <i class="fa fa-sitemap"></i>
+                                    </div>
+                                    <h5>VMware vSphere</h5>
+                                    <p>Plateforme d'entreprise de référence</p>
+                                    <small>Support: vCenter, templates, snapshots</small>
+                                </label>
+                            </div>
+
+                            <div class="hypervisor-card">
+                                <input type="radio" name="hypervisor_provider" id="nutanix" value="nutanix"
+                                       {% if wizardData.hypervisor_provider == 'nutanix' %}checked{% endif %}>
+                                <label for="nutanix" class="hypervisor-label">
+                                    <div class="hypervisor-icon">
+                                        <i class="fa fa-hdd"></i>
+                                    </div>
+                                    <h5>Nutanix Prism</h5>
+                                    <p>Infrastructure hyperconvergée</p>
+                                    <small>Support: Prism API, scaling automatique</small>
+                                </label>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Step 2: Hypervisor Credentials -->
+                    {% if currentStep == 2 %}
+                        <h4 class="mb-4">
+                            <i class="fa fa-key"></i> Connectez-vous à votre hyperviseur
+                        </h4>
+
+                        <div class="alert alert-info mb-4" role="alert">
+                            <i class="fa fa-info-circle"></i>
+                            Vos identifiants ne sont utilisés que pour cette configuration. 
+                            Ils seront chiffrés et stockés de manière sécurisée.
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.hypervisor_host, "URL/Host") }}
+                            {{ form_widget(form.hypervisor_host, {'attr': {'class': 'form-control', 'placeholder': 'https://proxmox.example.com:8006'}}) }}
+                            {{ form_help(form.hypervisor_host) }}
+                            {{ form_errors(form.hypervisor_host) }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.hypervisor_username, "Identifiant") }}
+                            {{ form_widget(form.hypervisor_username, {'attr': {'class': 'form-control', 'placeholder': 'root@pam'}}) }}
+                            {{ form_errors(form.hypervisor_username) }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.hypervisor_password, "Mot de passe") }}
+                            <div class="input-group">
+                                {{ form_widget(form.hypervisor_password, {'attr': {'class': 'form-control'}}) }}
+                                <button class="btn btn-outline-secondary toggle-password" type="button">
+                                    <i class="fa fa-eye"></i>
+                                </button>
+                            </div>
+                            {{ form_errors(form.hypervisor_password) }}
+                        </div>
+
+                        <!-- Provider-specific fields -->
+                        <div id="proxmox-specific" style="display: {% if wizardData.hypervisor_provider == 'proxmox' %}block{% else %}none{% endif %};">
+                            <div class="mb-3">
+                                {{ form_label(form.proxmox_node, "Nœud Proxmox") }}
+                                {{ form_widget(form.proxmox_node, {'attr': {'class': 'form-control', 'placeholder': 'pve'}}) }}
+                            </div>
+                        </div>
+
+                        <div id="vmware-specific" style="display: {% if wizardData.hypervisor_provider == 'vmware' %}block{% else %}none{% endif %};">
+                            <div class="mb-3">
+                                {{ form_label(form.vmware_datacenter, "Datacenter") }}
+                                {{ form_widget(form.vmware_datacenter, {'attr': {'class': 'form-control', 'placeholder': 'ha-datacenter'}}) }}
+                            </div>
+                        </div>
+
+                        <div id="nutanix-specific" style="display: {% if wizardData.hypervisor_provider == 'nutanix' %}block{% else %}none{% endif %};">
+                            <div class="mb-3">
+                                {{ form_label(form.nutanix_cluster, "Cluster") }}
+                                {{ form_widget(form.nutanix_cluster, {'attr': {'class': 'form-control', 'placeholder': 'default'}}) }}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Step 3: VM Configuration -->
+                    {% if currentStep == 3 %}
+                        <h4 class="mb-4">
+                            <i class="fa fa-microchip"></i> Configurez votre machine virtuelle
+                        </h4>
+
+                        <div class="mb-3">
+                            {{ form_label(form.vm_name, "Nom de la VM") }}
+                            {{ form_widget(form.vm_name, {'attr': {'class': 'form-control', 'placeholder': 'ollama-ia-01'}}) }}
+                            {{ form_help(form.vm_name) }}
+                            {{ form_errors(form.vm_name) }}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form_label(form.vm_memory, "Mémoire RAM") }}
+                                    <div class="input-group">
+                                        {{ form_widget(form.vm_memory, {'attr': {'class': 'form-control', 'type': 'number', 'placeholder': '4096'}}) }}
+                                        <span class="input-group-text">MB</span>
+                                    </div>
+                                    {{ form_help(form.vm_memory) }}
+                                    {{ form_errors(form.vm_memory) }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form_label(form.vm_cores, "CPUs") }}
+                                    <div class="input-group">
+                                        {{ form_widget(form.vm_cores, {'attr': {'class': 'form-control', 'type': 'number', 'placeholder': '2'}}) }}
+                                        <span class="input-group-text">cores</span>
+                                    </div>
+                                    {{ form_help(form.vm_cores) }}
+                                    {{ form_errors(form.vm_cores) }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form_label(form.vm_disk, "Taille Disque") }}
+                                    <div class="input-group">
+                                        {{ form_widget(form.vm_disk, {'attr': {'class': 'form-control', 'type': 'number', 'placeholder': '50'}}) }}
+                                        <span class="input-group-text">GB</span>
+                                    </div>
+                                    {{ form_help(form.vm_disk) }}
+                                    {{ form_errors(form.vm_disk) }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form_label(form.vm_storage, "Storage Container") }}
+                                    {{ form_widget(form.vm_storage, {'attr': {'class': 'form-control', 'placeholder': 'Optionnel'}}) }}
+                                    {{ form_errors(form.vm_storage) }}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Step 4: AI Model Selection -->
+                    {% if currentStep == 4 %}
+                        <h4 class="mb-4">
+                            <i class="fa fa-brain"></i> Choisissez le modèle IA
+                        </h4>
+
+                        <div class="model-cards mb-4">
+                            <div class="model-card">
+                                <input type="radio" name="ai_model" id="qwen3_4b" value="qwen3:4b"
+                                       {% if wizardData.ai_model == 'qwen3:4b' %}checked{% endif %}>
+                                <label for="qwen3_4b" class="model-label">
+                                    <h5>Qwen3 4B <small class="badge bg-success">Recommandé</small></h5>
+                                    <p>4 milliards de paramètres</p>
+                                    <ul class="list-unstyled small">
+                                        <li>✅ Léger et rapide</li>
+                                        <li>✅ Idéal pour déploiement auto</li>
+                                        <li>✅ Min: 2GB RAM</li>
+                                        <li>✅ Latence: ~50ms</li>
+                                    </ul>
+                                </label>
+                            </div>
+
+                            <div class="model-card">
+                                <input type="radio" name="ai_model" id="qwen3_8b" value="qwen3:8b"
+                                       {% if wizardData.ai_model == 'qwen3:8b' %}checked{% endif %}>
+                                <label for="qwen3_8b" class="model-label">
+                                    <h5>Qwen3 8B <small class="badge bg-info">Puissant</small></h5>
+                                    <p>8 milliards de paramètres</p>
+                                    <ul class="list-unstyled small">
+                                        <li>⚡ Plus de contexte</li>
+                                        <li>⚡ Meilleure compréhension</li>
+                                        <li>⚡ Min: 4GB RAM</li>
+                                        <li>⚡ Latence: ~100ms</li>
+                                    </ul>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-warning mb-0" role="alert">
+                            <i class="fa fa-warning"></i>
+                            <strong>Choix EXPLICITE</strong> — Le modèle doit être disponible et téléchargé 
+                            pendant le déploiement.
+                        </div>
+                    {% endif %}
+
+                    <!-- Step 5: Summary -->
+                    {% if currentStep == 5 %}
+                        <h4 class="mb-4">
+                            <i class="fa fa-clipboard"></i> Résumé du déploiement
+                        </h4>
+
+                        <div class="summary-box mb-4">
+                            <div class="summary-section">
+                                <h6>Hyperviseur</h6>
+                                <p class="mb-0">
+                                    <strong>{{ wizardData.hypervisor_provider|upper }}</strong><br>
+                                    <small class="text-muted">{{ wizardData.hypervisor_host }}</small>
+                                </p>
+                            </div>
+
+                            <div class="summary-section">
+                                <h6>Machine Virtuelle</h6>
+                                <p class="mb-0">
+                                    <strong>{{ wizardData.vm_name }}</strong><br>
+                                    <small class="text-muted">
+                                        {{ wizardData.vm_cores }} CPU • {{ (wizardData.vm_memory/1024)|round(1) }} GB RAM • {{ wizardData.vm_disk }} GB Disk
+                                    </small>
+                                </p>
+                            </div>
+
+                            <div class="summary-section">
+                                <h6>Configuration IA</h6>
+                                <p class="mb-0">
+                                    <strong>{{ wizardData.ai_model }}</strong><br>
+                                    <small class="text-muted">Ollama API + Qwen3 (Mode 2)</small>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.deployment_name, "Nom du Déploiement") }}
+                            {{ form_widget(form.deployment_name, {'attr': {'class': 'form-control', 'placeholder': 'Mode 2 - Ollama Production'}}) }}
+                            {{ form_help(form.deployment_name) }}
+                            {{ form_errors(form.deployment_name) }}
+                        </div>
+
+                        <div class="alert alert-info" role="alert">
+                            <i class="fa fa-info-circle"></i>
+                            <strong>Prêt à déployer ?</strong> Cliquez sur "Déployer" pour lancer le processus automatisé. 
+                            Le déploiement s'exécutera en arrière-plan et vous pourrez suivre la progression.
+                        </div>
+                    {% endif %}
+
+                    <!-- Form Controls -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4 pt-3 border-top">
+                        {% if currentStep > 1 %}
+                            <a href="{{ path('admin_ai_mode2_wizard', {'step': currentStep - 1}) }}" class="btn btn-secondary">
+                                <i class="fa fa-arrow-left"></i> Retour
+                            </a>
+                        {% endif %}
+
+                        {% if currentStep < 5 %}
+                            {{ form_row(form.next, {'attr': {'class': 'btn btn-primary'}}) }}
+                        {% else %}
+                            {{ form_row(form.deploy, {'attr': {'class': 'btn btn-success btn-lg'}}) }}
+                        {% endif %}
+                    </div>
+
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Info -->
+        <div class="col-lg-4 d-none d-lg-block">
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-body">
+                    <h6 class="card-title mb-3">
+                        <i class="fa fa-lightbulb"></i> Conseils
+                    </h6>
+                    {% if currentStep == 1 %}
+                        <ul class="small">
+                            <li>Proxmox: Recommandé pour les déploiements open-source</li>
+                            <li>VMware: Pour les environnements d'entreprise existants</li>
+                            <li>Nutanix: Infrastructure hyperconvergée</li>
+                        </ul>
+                    {% elseif currentStep == 2 %}
+                        <ul class="small">
+                            <li>Utilisez un compte avec permissions d'administration</li>
+                            <li>Assurez-vous que le firewall permet la connexion API</li>
+                            <li>Les identifiants seront chiffrés en base</li>
+                        </ul>
+                    {% elseif currentStep == 3 %}
+                        <ul class="small">
+                            <li>RAM: Min 2GB, recommandé 4GB ou plus</li>
+                            <li>CPU: Min 2 cores, recommandé 4+ pour performance</li>
+                            <li>Disk: Min 20GB, recommandé 50GB+ pour modèles</li>
+                        </ul>
+                    {% elseif currentStep == 4 %}
+                        <ul class="small">
+                            <li>Qwen3 4B: Bon compromis pour la plupart des cas</li>
+                            <li>Qwen3 8B: Pour besoin de contexte + compréhension</li>
+                            <li>Choix EXPLICITE requis (pas d'auto-détection)</li>
+                        </ul>
+                    {% else %}
+                        <ul class="small">
+                            <li>Vérifiez le résumé avant de lancer</li>
+                            <li>Le déploiement prend 5-15 minutes</li>
+                            <li>Vous recevrez une notification à la fin</li>
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.step-indicator {
+    text-align: center;
+    opacity: 0.5;
+    transition: opacity 0.3s;
+}
+
+.step-indicator.active,
+.step-indicator.completed {
+    opacity: 1;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
+    margin: 0 auto 10px;
+    background-color: #e9ecef;
+    border-radius: 50%;
+    font-weight: bold;
+    display: inline-block;
+}
+
+.step-indicator.active .step-number {
+    background-color: #007bff;
+    color: white;
+}
+
+.step-indicator.completed .step-number {
+    background-color: #28a745;
+    color: white;
+}
+
+/* Hypervisor Cards */
+.hypervisor-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.hypervisor-card {
+    position: relative;
+}
+
+.hypervisor-card input {
+    display: none;
+}
+
+.hypervisor-label {
+    display: block;
+    padding: 20px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+}
+
+.hypervisor-card input:checked ~ .hypervisor-label {
+    border-color: #007bff;
+    background-color: #f0f7ff;
+}
+
+.hypervisor-label h5 {
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.hypervisor-label p {
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.hypervisor-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    color: #007bff;
+}
+
+/* Model Cards */
+.model-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.model-card {
+    position: relative;
+}
+
+.model-card input {
+    display: none;
+}
+
+.model-label {
+    display: block;
+    padding: 20px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.model-card input:checked ~ .model-label {
+    border-color: #007bff;
+    background-color: #f0f7ff;
+}
+
+/* Summary Sections */
+.summary-box {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.summary-section {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.summary-section h6 {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle password visibility
+    document.querySelectorAll('.toggle-password').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const input = this.previousElementSibling;
+            const isPassword = input.type === 'password';
+            
+            input.type = isPassword ? 'text' : 'password';
+            this.innerHTML = isPassword ? 
+                '<i class="fa fa-eye-slash"></i>' : 
+                '<i class="fa fa-eye"></i>';
+        });
+    });
+
+    // Show/hide provider-specific fields
+    const hypervisorRadios = document.querySelectorAll('input[name="hypervisor_provider"]');
+    hypervisorRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById('proxmox-specific').style.display = 
+                this.value === 'proxmox' ? 'block' : 'none';
+            document.getElementById('vmware-specific').style.display = 
+                this.value === 'vmware' ? 'block' : 'none';
+            document.getElementById('nutanix-specific').style.display = 
+                this.value === 'nutanix' ? 'block' : 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

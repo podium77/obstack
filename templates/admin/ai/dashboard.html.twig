@@ -1,0 +1,316 @@
+{% extends "base.html.twig" %}
+
+{% block title %}Infrastructure IA - Admin{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>🤖 Infrastructure IA Centralisée</h1>
+            <p class="text-muted">Gestion des configurations d'IA pour la plateforme</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ path('admin_ai_mode1_configure') }}" class="btn btn-primary">
+                <i class="fa fa-plus"></i> Configurer Mode 1
+            </a>
+        </div>
+    </div>
+
+    {% if infrastructures|length > 0 %}
+        <div class="card">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fa fa-server"></i> 
+                    Infrastructures Actives ({{ infrastructures|length }})
+                </h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nom</th>
+                            <th>Mode</th>
+                            <th>Fournisseur</th>
+                            <th>Modèle</th>
+                            <th>Statut</th>
+                            <th>URL API</th>
+                            <th>Dernière Vérification</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for infra in infrastructures %}
+                            <tr>
+                                <td>
+                                    <strong>{{ infra.name }}</strong>
+                                    {% if infra.company %}
+                                        <br><small class="text-muted">{{ infra.company.name }}</small>
+                                    {% else %}
+                                        <br><small class="badge bg-success">Globale</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ infra.mode|upper }}</span>
+                                </td>
+                                <td>
+                                    <code>{{ infra.provider }}</code>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ infra.model }}</span>
+                                </td>
+                                <td>
+                                    {% if infra.status == 'active' %}
+                                        <span class="badge bg-success">
+                                            <i class="fa fa-check-circle"></i> Actif
+                                        </span>
+                                    {% elseif infra.status == 'deploying' %}
+                                        <span class="badge bg-warning">
+                                            <i class="fa fa-spinner fa-spin"></i> Déploiement
+                                        </span>
+                                    {% elseif infra.status == 'failed' %}
+                                        <span class="badge bg-danger">
+                                            <i class="fa fa-exclamation-circle"></i> Erreur
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fa fa-power-off"></i> Inactif
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <code class="text-break" style="font-size: 0.85rem;">
+                                        {{ infra.apiUrl|default('-') }}
+                                    </code>
+                                </td>
+                                <td>
+                                    {% if infra.lastHealthCheckAt %}
+                                        <small class="text-muted">
+                                            {{ infra.lastHealthCheckAt|date('d/m/Y H:i:s') }}
+                                        </small>
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ path('admin_ai_show', {id: infra.id}) }}" 
+                                           class="btn btn-outline-secondary" title="Détails">
+                                            <i class="fa fa-eye"></i>
+                                        </a>
+                                        <button type="button" 
+                                                class="btn btn-outline-secondary test-connection-btn"
+                                                data-infra-id="{{ infra.id }}"
+                                                title="Test de connexion">
+                                            <i class="fa fa-plug"></i>
+                                        </button>
+                                        {% if infra.status == 'active' %}
+                                            <form method="POST" 
+                                                  action="{{ path('admin_ai_deactivate', {id: infra.id}) }}"
+                                                  style="display: inline;">
+                                                <button type="submit" 
+                                                        class="btn btn-outline-warning btn-sm"
+                                                        title="Désactiver">
+                                                    <i class="fa fa-pause"></i>
+                                                </button>
+                                            </form>
+                                        {% else %}
+                                            <form method="POST" 
+                                                  action="{{ path('admin_ai_activate', {id: infra.id}) }}"
+                                                  style="display: inline;">
+                                                <button type="submit" 
+                                                        class="btn btn-outline-success btn-sm"
+                                                        title="Activer">
+                                                    <i class="fa fa-play"></i>
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                        <button type="button" 
+                                                class="btn btn-outline-danger delete-btn"
+                                                data-infra-id="{{ infra.id }}"
+                                                data-infra-name="{{ infra.name }}"
+                                                title="Supprimer">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading">
+                <i class="fa fa-info-circle"></i> Aucune Infrastructure Configurée
+            </h4>
+            <p>
+                Aucune infrastructure IA n'est actuellement active. Commencez par configurer Mode 1 
+                pour utiliser une infrastructure IA existante.
+            </p>
+            <hr>
+            <a href="{{ path('admin_ai_mode1_configure') }}" class="btn btn-primary">
+                <i class="fa fa-cog"></i> Configurer Mode 1
+            </a>
+        </div>
+    {% endif %}
+
+    <!-- Info Cards -->
+    <div class="row mt-5">
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fa fa-lightbulb"></i> Mode 1 — Infrastructure Existante
+                    </h6>
+                    <p class="card-text small">
+                        Connectez une infrastructure Ollama existante. Configuration manuelle, 
+                        sans autodétection.
+                    </p>
+                    <ul class="small mb-2">
+                        <li>✅ Choix modèle explicite</li>
+                        <li>✅ Test de connexion obligatoire</li>
+                        <li>✅ Pas de scan automatique</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fa fa-rocket"></i> Mode 2 — Déploiement Automatisé
+                    </h6>
+                    <p class="card-text small">
+                        Déployez automatiquement l'IA sur vos hyperviseurs 
+                        (Proxmox, VMware, Nutanix).
+                    </p>
+                    <ul class="small mb-2">
+                        <li>🔜 Déploiement automatisé</li>
+                        <li>🔜 Support multi-hyperviseurs</li>
+                        <li>🔜 Installation assistée</li>
+                    </ul>
+                    <small class="text-muted">En développement</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fa fa-exclamation-triangle"></i> Confirmer la Suppression
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    Êtes-vous sûr de vouloir supprimer l'infrastructure IA 
+                    <strong id="deleteInfraName"></strong> ?
+                </p>
+                <p class="text-danger small">
+                    <i class="fa fa-warning"></i> Cette action est irréversible.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Annuler
+                </button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa fa-trash"></i> Supprimer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Test Connection
+    document.querySelectorAll('.test-connection-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const infraId = this.dataset.infraId;
+            const btn = this;
+            const originalHtml = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+            
+            try {
+                const response = await fetch(`/admin/ai/${infraId}/test-connection`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    btn.classList.add('btn-success');
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.innerHTML = '<i class="fa fa-check-circle"></i> OK';
+                    setTimeout(() => {
+                        btn.classList.remove('btn-success');
+                        btn.classList.add('btn-outline-secondary');
+                        btn.innerHTML = originalHtml;
+                    }, 3000);
+                } else {
+                    alert('❌ Erreur : ' + (data.message || 'Connexion impossible'));
+                    btn.innerHTML = originalHtml;
+                }
+            } catch (error) {
+                alert('Erreur réseau : ' + error.message);
+                btn.innerHTML = originalHtml;
+            }
+            
+            btn.disabled = false;
+        });
+    });
+    
+    // Delete Infrastructure
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const infraId = this.dataset.infraId;
+            const infraName = this.dataset.infraName;
+            
+            document.getElementById('deleteInfraName').textContent = infraName;
+            document.getElementById('deleteForm').action = `/admin/ai/${infraId}/delete`;
+            
+            deleteModal.show();
+        });
+    });
+});
+</script>
+
+<style>
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+code {
+    background-color: #f5f5f5;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.card {
+    border-left: 4px solid #007bff;
+}
+
+.card-body h6 {
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+</style>
+{% endblock %}

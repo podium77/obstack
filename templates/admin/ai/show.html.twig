@@ -1,0 +1,373 @@
+{% extends "base.html.twig" %}
+
+{% block title %}{{ infrastructure.name }} - Infrastructure IA{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>
+                <i class="fa fa-server"></i> {{ infrastructure.name }}
+            </h1>
+            {% if infrastructure.company %}
+                <p class="text-muted">
+                    Entreprise: <strong>{{ infrastructure.company.name }}</strong>
+                </p>
+            {% else %}
+                <p class="text-muted">
+                    <span class="badge bg-success">Infrastructure Globale</span>
+                </p>
+            {% endif %}
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ path('admin_ai_dashboard') }}" class="btn btn-secondary">
+                <i class="fa fa-arrow-left"></i> Retour
+            </a>
+        </div>
+    </div>
+
+    <!-- Status Alert -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            {% if infrastructure.status == 'active' %}
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fa fa-check-circle"></i>
+                    <strong>Infrastructure Active</strong> — La configuration IA est opérationnelle
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% elseif infrastructure.status == 'deploying' %}
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="fa fa-spinner fa-spin"></i>
+                    <strong>Déploiement en cours</strong> — Veuillez patienter...
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% elseif infrastructure.status == 'failed' %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fa fa-exclamation-circle"></i>
+                    <strong>Erreur</strong> — La configuration IA n'est pas opérationnelle
+                    {% if infrastructure.errorMessage %}
+                        <br><small>{{ infrastructure.errorMessage }}</small>
+                    {% endif %}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% else %}
+                <div class="alert alert-secondary alert-dismissible fade show" role="alert">
+                    <i class="fa fa-power-off"></i>
+                    <strong>Infrastructure Inactive</strong> — Activez-la pour l'utiliser
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Configuration Details -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fa fa-cog"></i> Configuration
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-borderless mb-0">
+                        <tbody>
+                            <tr>
+                                <td style="width: 30%;"><strong>Nom</strong></td>
+                                <td>{{ infrastructure.name }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Mode</strong></td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        {{ infrastructure.mode|upper }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fournisseur</strong></td>
+                                <td>
+                                    <code>{{ infrastructure.provider }}</code>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Modèle IA</strong></td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ infrastructure.model }}</span>
+                                    {% if infrastructure.model == 'qwen3:4b' %}
+                                        <small class="text-muted ms-2">(4B - Léger)</small>
+                                    {% elseif infrastructure.model == 'qwen3:8b' %}
+                                        <small class="text-muted ms-2">(8B - Puissant)</small>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>URL API</strong></td>
+                                <td>
+                                    <code class="text-break">{{ infrastructure.apiUrl }}</code>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Timeout</strong></td>
+                                <td>{{ infrastructure.timeoutSeconds }} secondes</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Statut</strong></td>
+                                <td>
+                                    {% if infrastructure.status == 'active' %}
+                                        <span class="badge bg-success">
+                                            <i class="fa fa-check-circle"></i> Actif
+                                        </span>
+                                    {% elseif infrastructure.status == 'deploying' %}
+                                        <span class="badge bg-warning">
+                                            <i class="fa fa-spinner fa-spin"></i> Déploiement
+                                        </span>
+                                    {% elseif infrastructure.status == 'failed' %}
+                                        <span class="badge bg-danger">
+                                            <i class="fa fa-exclamation-circle"></i> Erreur
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactif</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Health & Audit Info -->
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fa fa-heartbeat"></i> Santé & Audit
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-borderless mb-0">
+                        <tbody>
+                            <tr>
+                                <td style="width: 30%;"><strong>Dernière Vérification</strong></td>
+                                <td>
+                                    {% if infrastructure.lastHealthCheckAt %}
+                                        {{ infrastructure.lastHealthCheckAt|date('d/m/Y H:i:s') }}
+                                    {% else %}
+                                        <span class="text-muted">Pas de vérification encore</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Créée le</strong></td>
+                                <td>
+                                    {{ infrastructure.createdAt|date('d/m/Y H:i:s') }}
+                                    {% if infrastructure.createdBy %}
+                                        <br><small class="text-muted">Par: {{ infrastructure.createdBy.email }}</small>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Mise à jour</strong></td>
+                                <td>{{ infrastructure.updatedAt|date('d/m/Y H:i:s') }}</td>
+                            </tr>
+                            {% if infrastructure.errorMessage %}
+                                <tr>
+                                    <td><strong>Dernier Erreur</strong></td>
+                                    <td>
+                                        <div class="alert alert-danger mb-0 py-2 px-3" style="font-size: 0.9rem;">
+                                            {{ infrastructure.errorMessage }}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Sidebar -->
+        <div class="col-lg-4 mb-4">
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fa fa-sliders"></i> Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <!-- Test Connection -->
+                        <button type="button" class="btn btn-outline-primary" id="testConnectionBtn">
+                            <i class="fa fa-plug"></i> Test de Connexion
+                        </button>
+
+                        <!-- Activate / Deactivate -->
+                        {% if infrastructure.status == 'active' %}
+                            <form method="POST" action="{{ path('admin_ai_deactivate', {id: infrastructure.id}) }}">
+                                <button type="submit" class="btn btn-warning w-100">
+                                    <i class="fa fa-pause"></i> Désactiver
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="POST" action="{{ path('admin_ai_activate', {id: infrastructure.id}) }}">
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="fa fa-play"></i> Activer
+                                </button>
+                            </form>
+                        {% endif %}
+
+                        <!-- Delete -->
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="fa fa-trash"></i> Supprimer
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Card -->
+            <div class="card border-info">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fa fa-info-circle"></i> À Propos de Mode 1
+                    </h6>
+                    <p class="card-text small mb-0">
+                        Mode 1 vous permet de connecter une infrastructure Ollama 
+                        <strong>existante</strong> sans modification. Configuration 
+                        100% manuelle, sans scan automatique.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Connection Modal -->
+<div class="modal fade" id="testModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fa fa-plug"></i> Test de Connexion
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="testResult" style="display: none;">
+                    <div id="testSpinner" class="text-center mb-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Vérification...</span>
+                        </div>
+                    </div>
+                    <div id="testMessage"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fa fa-exclamation-triangle"></i> Confirmer la Suppression
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    Êtes-vous sûr de vouloir supprimer l'infrastructure IA 
+                    <strong>{{ infrastructure.name }}</strong> ?
+                </p>
+                <p class="text-danger small">
+                    <i class="fa fa-warning"></i> Cette action est irréversible.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Annuler
+                </button>
+                <form method="POST" action="{{ path('admin_ai_delete', {id: infrastructure.id}) }}" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fa fa-trash"></i> Supprimer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const testBtn = document.getElementById('testConnectionBtn');
+    const testModal = new bootstrap.Modal(document.getElementById('testModal'));
+    
+    testBtn.addEventListener('click', async function() {
+        testModal.show();
+        
+        try {
+            const response = await fetch(`{{ path('admin_ai_test_connection', {id: infrastructure.id}) }}`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            document.getElementById('testSpinner').style.display = 'none';
+            const messageDiv = document.getElementById('testMessage');
+            
+            if (data.success) {
+                messageDiv.innerHTML = `
+                    <div class="alert alert-success mb-0">
+                        <i class="fa fa-check-circle"></i>
+                        <strong>Connexion réussie!</strong>
+                        <p class="mb-0 mt-2">L'infrastructure Ollama est accessible et fonctionnelle.</p>
+                    </div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="alert alert-danger mb-0">
+                        <i class="fa fa-exclamation-circle"></i>
+                        <strong>Connexion impossible</strong>
+                        <p class="mb-0 mt-2">${data.message || 'Erreur inconnue'}</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            document.getElementById('testSpinner').style.display = 'none';
+            document.getElementById('testMessage').innerHTML = `
+                <div class="alert alert-danger mb-0">
+                    <i class="fa fa-exclamation-circle"></i>
+                    <strong>Erreur</strong>
+                    <p class="mb-0 mt-2">Erreur réseau: ${error.message}</p>
+                </div>
+            `;
+        }
+    });
+});
+</script>
+
+<style>
+.table-borderless td {
+    border: none;
+    padding: 0.75rem 0;
+    vertical-align: top;
+}
+
+.table-borderless tbody tr {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table-borderless tbody tr:last-child {
+    border-bottom: none;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,317 @@
+{% extends "base.html.twig" %}
+
+{% block title %}Configurer Mode 1 - Infrastructure IA{% endblock %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>
+                <i class="fa fa-cog"></i> Configurer Mode 1 — Infrastructure Existante
+            </h1>
+            <p class="text-muted">Connectez une infrastructure Ollama existante</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ path('admin_ai_dashboard') }}" class="btn btn-secondary">
+                <i class="fa fa-arrow-left"></i> Retour au Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body p-4">
+                    {{ form_start(form, {'attr': {'class': 'needs-validation', 'novalidate': true}}) }}
+
+                    <!-- Name Field -->
+                    <div class="mb-3">
+                        {{ form_label(form.name, "Nom de l'Infrastructure") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa fa-tag"></i></span>
+                            {{ form_widget(form.name, {'attr': {
+                                'class': 'form-control',
+                                'placeholder': 'Ex: Ollama-Prod-01',
+                                'autocomplete': 'off'
+                            }}) }}
+                        </div>
+                        {{ form_help(form.name) }}
+                        {{ form_errors(form.name) }}
+                    </div>
+
+                    <!-- Provider Selection -->
+                    <div class="mb-3">
+                        {{ form_label(form.provider, "Fournisseur") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa fa-server"></i></span>
+                            {{ form_widget(form.provider, {'attr': {
+                                'class': 'form-select',
+                                'disabled': true
+                            }}) }}
+                        </div>
+                        <small class="form-text text-muted">
+                            Seul Ollama est supporté pour le moment. Mode 2 supportera d'autres fournisseurs.
+                        </small>
+                        {{ form_errors(form.provider) }}
+                    </div>
+
+                    <!-- API URL Field -->
+                    <div class="mb-3">
+                        {{ form_label(form.api_url, "URL API Ollama") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa fa-link"></i></span>
+                            {{ form_widget(form.api_url, {'attr': {
+                                'class': 'form-control',
+                                'placeholder': 'http://ollama.example.com:11434',
+                                'autocomplete': 'off'
+                            }}) }}
+                        </div>
+                        <small class="form-text text-muted">
+                            URL complète avec le port (ex: http://localhost:11434)
+                        </small>
+                        {{ form_errors(form.api_url) }}
+                    </div>
+
+                    <!-- API Key Field (Optional) -->
+                    <div class="mb-3">
+                        {{ form_label(form.api_key, "Clé API (Optionnel)") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa fa-key"></i></span>
+                            {{ form_widget(form.api_key, {'attr': {
+                                'class': 'form-control',
+                                'placeholder': 'Laissez vide si pas d\'authentification',
+                                'autocomplete': 'off'
+                            }}) }}
+                            <button class="btn btn-outline-secondary toggle-password" type="button">
+                                <i class="fa fa-eye"></i>
+                            </button>
+                        </div>
+                        <small class="form-text text-muted">
+                            Sera stockée de manière sécurisée en base de données.
+                        </small>
+                        {{ form_errors(form.api_key) }}
+                    </div>
+
+                    <!-- Model Selection (EXPLICIT) -->
+                    <div class="mb-3">
+                        {{ form_label(form.model, "Modèle IA") }}
+                        <div class="model-selection">
+                            {% for key, label in form.model.vars.choices %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" 
+                                           name="{{ form.model.vars.full_name }}" 
+                                           id="{{ form.model.vars.id }}_{{ key }}" 
+                                           value="{{ key }}">
+                                    <label class="form-check-label" for="{{ form.model.vars.id }}_{{ key }}">
+                                        <strong>{{ label }}</strong>
+                                        <br>
+                                        <small class="text-muted d-block ms-4">
+                                            {% if key == 'qwen3:4b' %}
+                                                <i class="fa fa-microchip"></i> 4 milliards de paramètres - Léger, rapide
+                                            {% elseif key == 'qwen3:8b' %}
+                                                <i class="fa fa-microchip"></i> 8 milliards de paramètres - Plus puissant
+                                            {% endif %}
+                                        </small>
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <small class="form-text text-muted d-block mt-2">
+                            ⚠️ <strong>Choix EXPLICITE</strong> — Pas d'autodétection. Le modèle doit être 
+                            disponible sur l'infrastructure Ollama.
+                        </small>
+                        {{ form_errors(form.model) }}
+                    </div>
+
+                    <!-- Timeout Field -->
+                    <div class="mb-3">
+                        {{ form_label(form.timeout_seconds, "Timeout (secondes)") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fa fa-clock"></i></span>
+                            {{ form_widget(form.timeout_seconds, {'attr': {
+                                'class': 'form-control',
+                                'type': 'number',
+                                'min': 1,
+                                'max': 300,
+                                'placeholder': 30
+                            }}) }}
+                            <span class="input-group-text">s</span>
+                        </div>
+                        <small class="form-text text-muted">
+                            Délai d'attente pour les réponses API (1-300 secondes). Défaut: 30s
+                        </small>
+                        {{ form_errors(form.timeout_seconds) }}
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4 pt-3 border-top">
+                        <a href="{{ path('admin_ai_dashboard') }}" class="btn btn-secondary">
+                            <i class="fa fa-times"></i> Annuler
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg flex-grow-1">
+                            <i class="fa fa-check"></i> Configurer et Tester
+                        </button>
+                    </div>
+
+                    {{ form_end(form) }}
+                </div>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="alert alert-info mt-4" role="alert">
+                <h5 class="alert-heading"><i class="fa fa-info-circle"></i> Mode 1 — Comment ça marche ?</h5>
+                <ol class="mb-0">
+                    <li>
+                        <strong>Configuration manuelle</strong> — Vous fournissez l'URL et la clé API 
+                        de votre infrastructure Ollama existante
+                    </li>
+                    <li>
+                        <strong>Test de connexion</strong> — Vérification automatique que l'API est accessible
+                    </li>
+                    <li>
+                        <strong>Vérification du modèle</strong> — Confirmation que le modèle choisi est disponible
+                    </li>
+                    <li>
+                        <strong>Enregistrement</strong> — Stockage sécurisé de la configuration en base de données
+                    </li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Sidebar Info -->
+        <div class="col-lg-4">
+            <!-- Requirements Card -->
+            <div class="card mb-3 border-warning">
+                <div class="card-header bg-warning bg-opacity-10">
+                    <h6 class="mb-0"><i class="fa fa-list"></i> Prérequis</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small">
+                        <li class="mb-2">
+                            ✅ Instance Ollama fonctionnelle et accessible en réseau
+                        </li>
+                        <li class="mb-2">
+                            ✅ Port 11434 (ou custom) ouvert depuis le serveur Symfony
+                        </li>
+                        <li class="mb-2">
+                            ✅ Au moins un modèle Ollama installé
+                        </li>
+                        <li>
+                            ✅ Modèle supporté : qwen3:4b ou qwen3:8b
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Constraints Card -->
+            <div class="card mb-3 border-danger">
+                <div class="card-header bg-danger bg-opacity-10">
+                    <h6 class="mb-0"><i class="fa fa-shield"></i> Contraintes Architecturales</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled small">
+                        <li class="mb-2">
+                            🚫 Pas de scan automatique
+                        </li>
+                        <li class="mb-2">
+                            🚫 Pas de découverte de services
+                        </li>
+                        <li class="mb-2">
+                            🚫 Pas d'IA sur les agents
+                        </li>
+                        <li>
+                            ✅ Choix modèle EXPLICITE uniquement
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Support Card -->
+            <div class="card border-info">
+                <div class="card-body small">
+                    <h6 class="card-title"><i class="fa fa-question-circle"></i> Besoin d'aide ?</h6>
+                    <p class="mb-0">
+                        Consultez la <a href="/docs" target="_blank">documentation</a> pour plus d'informations 
+                        sur l'architecture IA centralisée.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle API Key Visibility
+    document.querySelectorAll('.toggle-password').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const input = this.previousElementSibling;
+            const isPassword = input.type === 'password';
+            
+            input.type = isPassword ? 'text' : 'password';
+            this.innerHTML = isPassword ? 
+                '<i class="fa fa-eye-slash"></i>' : 
+                '<i class="fa fa-eye"></i>';
+        });
+    });
+
+    // Form Validation
+    const form = document.querySelector('.needs-validation');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (!form.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    }
+});
+</script>
+
+<style>
+.model-selection .form-check {
+    padding: 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+}
+
+.model-selection .form-check:hover {
+    background-color: #f8f9fa;
+    border-color: #007bff;
+}
+
+.model-selection .form-check input:checked ~ label {
+    color: #007bff;
+}
+
+.model-selection .form-check input:checked + label strong {
+    font-weight: 700;
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.alert-info h5 {
+    margin-bottom: 1rem;
+}
+
+.alert-info ol {
+    padding-left: 1.5rem;
+    margin-bottom: 0;
+}
+
+.alert-info li {
+    margin-bottom: 0.75rem;
+}
+</style>
+{% endblock %}

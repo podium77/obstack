@@ -377,6 +377,215 @@ php bin/console cache:clear
 
 ---
 
+## 🧠 Architecture et Intégration IA Centralisée
+
+### Principes d'architecture
+
+#### IA Centralisée
+
+L'intelligence artificielle ne doit jamais être déployée sur les agents de collecte ni sur les machines surveillées. Les agents d'observabilité doivent rester **légers** et se limiter à :
+
+- Collecte des métriques
+- Collecte des logs
+- Collecte des traces
+- Enrichissement minimal des données
+- Transmission vers la plateforme Obstack
+
+**Toute l'intelligence artificielle est exécutée depuis une infrastructure centralisée.**
+
+### Modes de fonctionnement
+
+Obstack propose deux modes de configuration pour intégrer une IA.
+
+#### Mode 1 — Utiliser une IA existante
+
+L'administrateur renseigne manuellement les informations de connexion. **Aucune détection automatique du réseau** ne doit être réalisée.
+
+**Informations demandées :**
+
+- URL de l'API IA
+- Clé API (optionnelle)
+- Type de fournisseur
+- Modèle à utiliser
+
+**Fournisseur supporté :**
+
+- **Ollama**
+
+**Modèles disponibles :**
+
+- `qwen3:4b` (4 milliards de paramètres, léger)
+- `qwen3:8b` (8 milliards de paramètres, précision accrue)
+
+**Processus de validation :**
+
+Après renseignement des paramètres, Obstack effectue un **test de connexion** pour vérifier :
+
+1. L'accessibilité de l'API
+2. La disponibilité du modèle sélectionné
+
+Exemple de configuration :
+
+```env
+# Mode 1 : IA Existante
+AI_PROVIDER=ollama
+AI_API_URL=http://ollama.company.local:11434
+AI_MODEL=qwen3:8b
+AI_API_KEY=optional-if-required
+```
+
+#### Mode 2 — Déployer une nouvelle infrastructure IA
+
+Si aucune IA existante n'est utilisée, Obstack peut déployer automatiquement une infrastructure dédiée (basée sur Debian Trixie).
+
+**Assistant de configuration :**
+
+L'assistant pose successivement les questions suivantes :
+
+##### 1. Choix de l'Hyperviseur
+
+Sélectionner parmi :
+
+- **Proxmox VE**
+- **VMware ESXi / vCenter**
+- **Nutanix AHV**
+
+##### 2. Paramètres de connexion
+
+- URL de l'API hyperviseur
+- Utilisateur ou jeton API
+- Mot de passe (si nécessaire)
+
+**Test de connexion :** Valider la connexion à l'API de l'hyperviseur avant de continuer.
+
+##### 3. Choix du modèle
+
+L'utilisateur choisit explicitement :
+
+- `qwen3:4b`
+- `qwen3:8b`
+
+**Aucun choix automatique du modèle ne doit être effectué.**
+
+##### 4. Vérification des ressources
+
+Avant tout déploiement, Obstack analyse les ressources disponibles sur l'hyperviseur :
+
+- Nombre de CPU
+- Mémoire disponible
+- Stockage disponible
+- Présence éventuelle d'un GPU
+
+La présence d'un GPU est utilisée pour :
+
+- Valider la compatibilité du déploiement
+- Optimiser les performances
+
+Le choix du modèle reste celui effectué par l'administrateur.
+
+##### 5. Déploiement automatisé
+
+Après validation, Obstack automatise :
+
+1. Création d'une ou plusieurs machines virtuelles
+2. Installation du système d'exploitation (Debian Trixie)
+3. Installation de Docker ou Podman
+4. Installation d'Ollama
+5. Téléchargement du modèle sélectionné
+6. Installation des dépendances Python
+7. Installation de Neo4j Community Edition (si requis)
+8. Configuration automatique des services
+9. Enregistrement de l'URL du serveur IA dans la configuration d'Obstack
+
+### Architecture cible
+
+```
+Applications (Prometheus, OpenTelemetry, custom)
+        │
+        ▼
+Agents d'observabilité (collecte légère)
+        │
+        ▼
+====================================
+       OBSTACK (Symfony)
+====================================
+        │
+        ├─── Observabilité
+        │    ├── Métriques
+        │    ├── Logs
+        │    └── Traces
+        │
+        └─── Intelligence Artificielle
+             │
+             ├── IA existante (Ollama external)
+             │   └── qwen3:4b / qwen3:8b
+             │
+             └── Infrastructure IA déployée
+                 ├── Hyperviseur (Proxmox/VMware/Nutanix)
+                 ├── VM Debian Trixie
+                 ├── Ollama + Modèles LLM
+                 ├── Neo4j Community (optionnel)
+                 └── Services IA configurés
+```
+
+### Contraintes importantes
+
+#### Pas de découverte automatique
+
+Obstack **ne doit pas** :
+
+- Scanner le réseau
+- Rechercher automatiquement des serveurs Ollama
+- Détecter des API IA existantes
+
+Toutes les informations sont fournies manuellement par l'administrateur.
+
+#### Faible empreinte des agents
+
+Les composants surveillés ne doivent jamais contenir :
+
+- Ollama
+- Neo4j
+- Modèles LLM
+- Environnement Python dédié à l'IA
+
+Ces composants restent **exclusivement des agents de collecte.**
+
+#### Architecture modulaire
+
+Les composants IA doivent rester découplés du moteur d'observabilité :
+
+- Les communications passent uniquement par une API documentée
+- Remplacement facile du fournisseur IA
+- Mise à jour indépendante des modèles
+- Évolution de l'infrastructure sans modification du cœur d'Obstack
+
+#### Évolutivité future
+
+L'architecture doit permettre ultérieurement :
+
+- Ajout de nouveaux fournisseurs IA
+- Ajout de nouveaux modèles
+- Déploiement de plusieurs serveurs IA
+- Rééquilibrage de charge
+- Haute disponibilité
+
+Les composants sont conçus avec **des interfaces extensibles** pour éviter toute dépendance forte à Ollam ou à un modèle particulier.
+
+### Objectifs pour les développements futurs
+
+Toute évolution du projet doit respecter les principes suivants :
+
+1. **Architecture modulaire** : séparation claire des responsabilités
+2. **Séparation observabilité ↔ IA** : découplage complet via API
+3. **Configuration assistée** : assistant simple et sans scan automatique
+4. **Flexibilité IA** : support d'une IA existante ou déploiement nouveau
+5. **Choix explicite** : sélection manuelle du modèle par l'administrateur
+6. **Automatisation** : déploiement complet lorsqu'une nouvelle infrastructure IA est demandée
+7. **Légèreté des agents** : faible consommation de ressources sur systèmes surveillés
+
+---
+
 ## 🔧 Maintenance
 
 ### Sauvegardes
@@ -483,11 +692,17 @@ php bin/console messenger:failed:retry
 
 ## 📚 Documentation supplémentaire
 
+### Observabilité & Monitoring
 - [Architecture détaillée](docs/ARCHITECTURE.md)
 - [Spécification des agents](docs/AGENTS.md)
 - [Guide d'intégration API](docs/API_INTEGRATION.md)
 - [Configuration LDAP/OAuth2](docs/AUTHENTICATION.md)
 - [Dépannage avancé](docs/TROUBLESHOOTING.md)
+
+### Intelligence Artificielle Centralisée
+- **[Guide IA - Index complet](docs/AI_README.md)** ← Commencez ici pour l'intégration IA
+- [Guide d'implémentation détaillé](docs/AI_INTEGRATION.md) — Pour les développeurs
+- [Contraintes architecturales](docs/AI_ARCHITECTURE_CONSTRAINTS.md) — Checklist de conformité
 
 ---
 
