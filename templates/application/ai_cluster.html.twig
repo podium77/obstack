@@ -1,0 +1,160 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cluster IA - {{ application.name }}{% endblock %}
+{% block page_title %}Cluster IA: {{ application.name }}{% endblock %}
+{% block page_subtitle_content %}Statut et configuration du cluster IA attaché à cette application{% endblock %}
+
+{% block content %}
+<div style="display:grid;gap:24px">
+    
+    {# En-tête avec statut #}
+    <div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:24px">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:20px">
+            <div style="flex:1">
+                <div style="font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:8px">
+                    <i class="ti ti-robot"></i> Cluster IA
+                </div>
+                <h1 style="margin:0;font-size:24px;font-weight:700">{{ cluster.mode == 'none' ? 'Non configuré' : (cluster.mode == 'existing' ? 'Cluster Existant' : 'Cluster Déployé') }}</h1>
+                <div style="margin-top:8px;font-size:13px;color:var(--color-text-secondary)">
+                    {{ cluster.createdAt|date('d/m/Y à H:i') }} — Modèle: <strong>{{ cluster.aiModel ?? 'N/A' }}</strong>
+                </div>
+            </div>
+            <div style="display:flex;gap:12px;flex-direction:column;align-items:flex-end">
+                <div style="padding:8px 16px;border-radius:var(--radius-md);font-size:12px;font-weight:600;text-transform:uppercase">
+                    {% if cluster.status == 'active' %}
+                        <span style="background:var(--color-success-light);color:#166534">✓ Actif</span>
+                    {% elseif cluster.status == 'deploying' %}
+                        <span style="background:var(--color-warn-light);color:#92400e">⏳ Déploiement en cours</span>
+                    {% elseif cluster.status == 'pending' %}
+                        <span style="background:var(--color-info-light);color:#1d4ed8">◯ En attente</span>
+                    {% elseif cluster.status == 'failed' %}
+                        <span style="background:var(--color-critical-light);color:#7f1d1d">✗ Échoué</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Section IA Mode #}
+    <div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:24px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+            <i class="ti ti-settings"></i> Configuration
+        </div>
+
+        <div class="grid-2">
+            <div style="padding:16px;background:var(--color-bg-secondary);border-radius:var(--radius-md)">
+                <div style="font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600;margin-bottom:8px">Mode</div>
+                <div style="font-size:16px;font-weight:700">
+                    {% if cluster.mode == 'none' %}
+                        Pas d'IA
+                    {% elseif cluster.mode == 'existing' %}
+                        Cluster Existant
+                    {% else %}
+                        Déploiement Automatisé
+                    {% endif %}
+                </div>
+            </div>
+
+            <div style="padding:16px;background:var(--color-bg-secondary);border-radius:var(--radius-md)">
+                <div style="font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600;margin-bottom:8px">Modèle IA</div>
+                <div style="font-size:16px;font-weight:700">{{ cluster.aiModel ?? 'N/A' }}</div>
+            </div>
+
+            {% if cluster.mode == 'existing' and cluster.existingInfrastructure %}
+            <div style="padding:16px;background:var(--color-bg-secondary);border-radius:var(--radius-md)">
+                <div style="font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600;margin-bottom:8px">Infrastructure</div>
+                <div style="font-size:16px;font-weight:700">
+                    {{ cluster.existingInfrastructure.name }}
+                </div>
+                <div style="font-size:12px;color:var(--color-text-secondary);margin-top:8px">
+                    {{ cluster.existingInfrastructure.apiUrl }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if cluster.apiUrl %}
+            <div style="padding:16px;background:var(--color-bg-secondary);border-radius:var(--radius-md)">
+                <div style="font-size:12px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600;margin-bottom:8px">URL API</div>
+                <div style="font-size:14px;font-weight:600;font-family:monospace;word-break:break-all">
+                    <a href="{{ cluster.apiUrl }}" target="_blank" style="color:var(--color-brand);text-decoration:none">
+                        {{ cluster.apiUrl }} <i class="ti ti-external-link" style="font-size:11px"></i>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if cluster.mode == 'deployed' %}
+        <div style="margin-top:16px;padding:16px;background:var(--color-info-light);border-radius:var(--radius-md);font-size:12px;color:#1d4ed8">
+            <i class="ti ti-info-circle"></i>
+            <strong>Installation automatique:</strong> Debian Trixie Core, Ollama, démarrage systemd auto, restart on failure.
+        </div>
+        {% endif %}
+    </div>
+
+    {# Section Deployment Details #}
+    {% if cluster.mode == 'deployed' and cluster.deployment %}
+    <div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:24px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+            <i class="ti ti-server"></i> Détails du Déploiement
+        </div>
+
+        <div class="grid-2">
+            <div style="padding:12px;background:var(--color-bg-secondary);border-radius:var(--radius-md)">
+                <div style="font-size:11px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600">ID Déploiement</div>
+                <div style="font-size:14px;font-weight:600;font-family:monospace">#{{ cluster.deployment.id }}</div>
+            </div>
+
+            {% if cluster.deployment.vmId %}
+            <div style="padding:12px;background:var(--color-bg-secondary);border-radius:var(--radius-md)">
+                <div style="font-size:11px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600">ID VM</div>
+                <div style="font-size:14px;font-weight:600;font-family:monospace">{{ cluster.deployment.vmId }}</div>
+            </div>
+            {% endif %}
+
+            {% if cluster.deployment.vmIp %}
+            <div style="padding:12px;background:var(--color-bg-secondary);border-radius:var(--radius-md)">
+                <div style="font-size:11px;color:var(--color-text-secondary);text-transform:uppercase;font-weight:600">IP VM</div>
+                <div style="font-size:14px;font-weight:600;font-family:monospace">{{ cluster.deployment.vmIp }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Logs #}
+    {% if cluster.logs is not empty %}
+    <div style="background:var(--color-bg-primary);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:24px">
+        <div style="font-size:14px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+            <i class="ti ti-history"></i> Historique
+        </div>
+        
+        <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);overflow:hidden;max-height:300px;overflow-y:auto;font-family:monospace;font-size:11px">
+            {% for log in cluster.logs %}
+            <div style="padding:8px 12px;border-bottom:1px solid var(--color-border);color:var(--color-text-secondary)">
+                <span style="color:var(--color-brand);font-weight:600">[{{ log.timestamp }}]</span>
+                {{ log.message }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# Error Message #}
+    {% if cluster.errorMessage %}
+    <div style="background:var(--color-critical-light);border:1px solid var(--color-critical);border-radius:var(--radius-md);padding:16px;color:#7f1d1d">
+        <div style="font-weight:600;margin-bottom:8px">
+            <i class="ti ti-alert-circle"></i> Message d'erreur
+        </div>
+        <div style="font-size:12px;font-family:monospace">{{ cluster.errorMessage }}</div>
+    </div>
+    {% endif %}
+
+    {# Actions #}
+    <div style="display:flex;gap:12px">
+        <a href="{{ path('app_application_show', {id: application.id}) }}" class="btn btn-secondary">
+            <i class="ti ti-arrow-left"></i> Retour à l'application
+        </a>
+    </div>
+</div>
+{% endblock %}

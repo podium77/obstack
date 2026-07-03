@@ -14,7 +14,8 @@
             'connection': 'Connexion SSH',
             'services':   'Services',
             'thresholds': 'Seuils',
-            'reboot':     'Redémarrage planifié'
+            'reboot':     'Redémarrage planifié',
+            'ai':         'Configuration IA'
         } %}
         <button type="button" onclick="showTab('{{ tabId }}')"
                 id="tab-btn-{{ tabId }}"
@@ -242,6 +243,133 @@
                 </div>
             </div>
         </div>
+
+        {# ===== TAB: CONFIGURATION IA ===== #}
+        <div id="tab-ai" class="tab-panel" style="display:none">
+            <div style="background:var(--color-info-light);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:20px;font-size:12.5px;color:#1d4ed8">
+                <i class="ti ti-robot"></i>
+                Intégrez un cluster IA (Ollama) à cette application pour une intelligence locale.
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="font-weight:600;margin-bottom:12px">Mode IA *</label>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                    <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-bg-secondary);border-radius:var(--radius-sm);cursor:pointer;transition:all .2s">
+                        <input type="radio" name="ai_mode" value="none" checked style="width:18px;height:18px;accent-color:var(--color-brand)" onchange="showAIFields()">
+                        <span style="flex:1">
+                            <div style="font-weight:600;font-size:13px">Ne pas utiliser d'IA</div>
+                            <div style="font-size:12px;color:var(--color-text-secondary);margin-top:4px">Cette application ne nécessite pas d'intégration IA</div>
+                        </span>
+                    </label>
+
+                    <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-bg-secondary);border-radius:var(--radius-sm);cursor:pointer;transition:all .2s">
+                        <input type="radio" name="ai_mode" value="existing" style="width:18px;height:18px;accent-color:var(--color-brand)" onchange="showAIFields()">
+                        <span style="flex:1">
+                            <div style="font-weight:600;font-size:13px">Utiliser un cluster IA existant</div>
+                            <div style="font-size:12px;color:var(--color-text-secondary);margin-top:4px">Connectez-vous à un cluster Ollama déjà déployé</div>
+                        </span>
+                    </label>
+
+                    <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-bg-secondary);border-radius:var(--radius-sm);cursor:pointer;transition:all .2s">
+                        <input type="radio" name="ai_mode" value="deployed" style="width:18px;height:18px;accent-color:var(--color-brand)" onchange="showAIFields()">
+                        <span style="flex:1">
+                            <div style="font-weight:600;font-size:13px">Déployer un nouveau cluster IA</div>
+                            <div style="font-size:12px;color:var(--color-text-secondary);margin-top:4px">Créez automatiquement une VM avec Ollama (via hyperviseur)</div>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            {# Mode: Cluster IA existant #}
+            <div id="ai-existing-section" style="display:none;margin-top:24px;padding-top:24px;border-top:1px solid var(--color-border)">
+                <div style="font-size:13px;font-weight:600;margin-bottom:16px;color:var(--color-brand)">
+                    <i class="ti ti-link"></i> Paramètres du cluster existant
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Infrastructure IA existante *</label>
+                        <select name="ai_existing_infrastructure" id="ai_existing_infrastructure">
+                            <option value="">-- Sélectionner une infrastructure --</option>
+                            {% for infrastructure in activeInfrastructures %}
+                            <option value="{{ infrastructure.id }}">
+                                {{ infrastructure.name }} ({{ infrastructure.provider }}) - {{ infrastructure.apiUrl }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-hint">Sélectionnez une infrastructure Ollama déjà configurée</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Modèle IA *</label>
+                        <select name="ai_existing_model" id="ai_existing_model">
+                            <option value="">-- Sélectionner un modèle --</option>
+                            <option value="qwen3:4b">Qwen3 4B (Léger, 4GB RAM)</option>
+                            <option value="qwen3:8b">Qwen3 8B (Puissant, 8GB RAM)</option>
+                        </select>
+                        <div class="form-hint">Choix EXPLICITE du modèle — Aucun modèle n'est installé automatiquement</div>
+                    </div>
+                </div>
+            </div>
+
+            {# Mode: Nouveau déploiement #}
+            <div id="ai-deployed-section" style="display:none;margin-top:24px;padding-top:24px;border-top:1px solid var(--color-border)">
+                <div style="font-size:13px;font-weight:600;margin-bottom:16px;color:var(--color-brand)">
+                    <i class="ti ti-cloud-upload"></i> Configuration du nouveau cluster
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Modèle IA à déployer *</label>
+                        <select name="ai_deployed_model" id="ai_deployed_model">
+                            <option value="">-- Sélectionner un modèle --</option>
+                            <option value="qwen3:4b">Qwen3 4B (Léger, recommandé)</option>
+                            <option value="qwen3:8b">Qwen3 8B (Puissant)</option>
+                        </select>
+                        <div class="form-hint">Choix EXPLICITE — Seul ce modèle sera installé via Debian Trixie Core</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hyperviseur *</label>
+                        <select name="ai_deployed_hypervisor" id="ai_deployed_hypervisor">
+                            <option value="proxmox">Proxmox VE</option>
+                            <option value="vmware">VMware vSphere</option>
+                            <option value="nutanix">Nutanix Prism</option>
+                        </select>
+                        <div class="form-hint">Sélectionnez l'hyperviseur pour le déploiement</div>
+                    </div>
+                </div>
+
+                <div style="background:var(--color-bg-secondary);border-radius:var(--radius-md);padding:16px;margin:16px 0">
+                    <div style="font-size:12px;font-weight:600;margin-bottom:12px;color:var(--color-text-secondary)">
+                        Spécifications de la machine virtuelle
+                    </div>
+                    <div class="grid-4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+                        <div class="form-group">
+                            <label class="form-label">Nom de la VM *</label>
+                            <input type="text" name="ai_deployed_vm_name" placeholder="ollama-ia-001" value="">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mémoire RAM (MB) *</label>
+                            <input type="number" name="ai_deployed_vm_memory" value="4096" min="2048">
+                            <div class="form-hint">Min: 2GB</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">CPUs *</label>
+                            <input type="number" name="ai_deployed_vm_cores" value="2" min="1" max="128">
+                            <div class="form-hint">Recommandé: 2+</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Disque (GB) *</label>
+                            <input type="number" name="ai_deployed_vm_disk" value="50" min="20">
+                            <div class="form-hint">Min: 20GB</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background:var(--color-warn-light);border-radius:var(--radius-sm);padding:12px 14px;font-size:12px;color:#92400e">
+                    <i class="ti ti-alert-circle"></i>
+                    <strong>Configuration automatique:</strong> Debian Trixie Core sera installée avec Ollama, le modèle sera téléchargé, et le service systemd sera configuré pour démarrage automatique et redémarrage en cas d'erreur.
+                </div>
+            </div>
+        </div>
     </div>
 
     {# BOUTONS D'ACTION #}
@@ -269,6 +397,25 @@ function showTab(tabId) {
     btn.style.borderBottomColor = 'var(--color-brand)';
     btn.style.color = 'var(--color-brand)';
 }
+
+function showAIFields() {
+    const aiMode = document.querySelector('input[name="ai_mode"]:checked')?.value || 'none';
+    const existingSection = document.getElementById('ai-existing-section');
+    const deployedSection = document.getElementById('ai-deployed-section');
+
+    if (aiMode === 'existing') {
+        existingSection.style.display = 'block';
+        deployedSection.style.display = 'none';
+    } else if (aiMode === 'deployed') {
+        existingSection.style.display = 'none';
+        deployedSection.style.display = 'block';
+    } else {
+        existingSection.style.display = 'none';
+        deployedSection.style.display = 'none';
+    }
+}
+
 showTab('general');
+showAIFields();
 </script>
 {% endblock %}

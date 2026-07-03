@@ -9,9 +9,11 @@ use App\Enum\RemediationAction;
 use App\Enum\TriggerMetric;
 use App\Message\CollectMetricsMessage;
 use App\Repository\ApplicationRepository;
+use App\Repository\AIInfrastructureRepository;
 use App\Repository\EnvironmentRepository;
 use App\Repository\MetricSnapshotRepository;
 use App\Repository\RemediationLogRepository;
+use App\Service\AI\AIClusterService;
 use App\Service\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -27,13 +29,15 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ApplicationController extends AbstractController
 {
     public function __construct(
-        private readonly TenantContext            $tenant,
-        private readonly ApplicationRepository    $appRepo,
-        private readonly MetricSnapshotRepository $snapshotRepo,
-        private readonly RemediationLogRepository $logRepo,
-        private readonly EnvironmentRepository    $envRepo,
-        private readonly EntityManagerInterface   $em,
-        private readonly MessageBusInterface      $bus,
+        private readonly TenantContext              $tenant,
+        private readonly ApplicationRepository     $appRepo,
+        private readonly MetricSnapshotRepository  $snapshotRepo,
+        private readonly RemediationLogRepository  $logRepo,
+        private readonly EnvironmentRepository     $envRepo,
+        private readonly EntityManagerInterface    $em,
+        private readonly MessageBusInterface       $bus,
+        private readonly AIClusterService          $aiClusterService,
+        private readonly AIInfrastructureRepository $aiInfrastructureRepo,
     ) {}
 
     #[Route('', name: 'index')]
@@ -75,6 +79,20 @@ class ApplicationController extends AbstractController
             'recentLogs'     => $recentLogs,
             'stats24h'       => $stats24h,
             'chartData'      => $chartData,
+        ]);
+    }
+
+    #[Route('/{id}/ai-cluster', name: 'ai_cluster', requirements: ['id' => '\d+'])]
+    #[IsGranted('ROLE_USER')]
+    public function aiCluster(Application $app): Response
+    {
+        $this->denyAccessIfNotAllowed($app);
+        
+        $cluster = $this->aiClusterService->getClusterForApplication($app);
+        
+        return $this->render('application/ai_cluster.html.twig', [
+            'application' => $app,
+            'cluster' => $cluster,
         ]);
     }
 
@@ -150,6 +168,41 @@ class ApplicationController extends AbstractController
             $this->em->persist($app);
             $this->em->flush();
 
+            // Traiter la configuration IA
+            $aiMode = $data['ai_mode'] ?? 'none';
+            if ($aiMode !== 'none') {
+                try {
+                    $aiModel = null;
+                    $infrastructureId = null;
+                    $deploymentConfig = null;
+
+                    if ($aiMode === 'existing') {
+                        $infrastructureId = (int)($data['ai_existing_infrastructure'] ?? 0);
+                        $aiModel = $data['ai_existing_model'] ?? null;
+                    } elseif ($aiMode === 'deployed') {
+                        $aiModel = $data['ai_deployed_model'] ?? null;
+                        $deploymentConfig = [
+                            'hypervisor_provider' => $data['ai_deployed_hypervisor'] ?? 'proxmox',
+                            'vm_name' => $data['ai_deployed_vm_name'] ?? '',
+                            'vm_memory' => (int)($data['ai_deployed_vm_memory'] ?? 4096),
+                            'vm_cores' => (int)($data['ai_deployed_vm_cores'] ?? 2),
+                            'vm_disk' => (int)($data['ai_deployed_vm_disk'] ?? 50),
+                            // Hypervisor credentials would be handled separately for security
+                        ];
+                    }
+
+                    $this->aiClusterService->configureAICluster(
+                        $app,
+                        $aiMode,
+                        $aiModel,
+                        $infrastructureId,
+                        $deploymentConfig
+                    );
+                } catch (\Exception $e) {
+                    $this->addFlash('warning', 'Application créée, mais la configuration IA a échoué: ' . $e->getMessage());
+                }
+            }
+
             $this->addFlash('success', $isNew
                 ? "Application \"{$app->getName()}\" créée."
                 : "Application mise à jour."
@@ -158,15 +211,18 @@ class ApplicationController extends AbstractController
             return $this->redirectToRoute('app_application_show', ['id' => $app->getId()]);
         }
 
+        $activeInfrastructures = $this->aiInfrastructureRepo->findAllActive();
+
         return $this->render('application/form.html.twig', [
-            'application'    => $app,
-            'isNew'          => $isNew,
-            'environments'   => $environments,
-            'osTypes'        => OsType::cases(),
-            'dbTypes'        => DbType::cases(),
-            'machineTypes'   => MachineType::cases(),
-            'remActions'     => RemediationAction::cases(),
-            'triggerMetrics' => TriggerMetric::cases(),
+            'application'              => $app,
+            'isNew'                    => $isNew,
+            'environments'             => $environments,
+            'activeInfrastructures'    => $activeInfrastructures,
+            'osTypes'                  => OsType::cases(),
+            'dbTypes'                  => DbType::cases(),
+            'machineTypes'             => MachineType::cases(),
+            'remActions'               => RemediationAction::cases(),
+            'triggerMetrics'           => TriggerMetric::cases(),
         ]);
     }
 
