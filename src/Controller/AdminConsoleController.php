@@ -4,6 +4,7 @@ namespace App\Controller;
 use App\Entity\LocalUser;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -13,8 +14,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class AdminConsoleController extends AbstractController
 {
     private const ADMIN_CONSOLE_PORT = 5173;
-    private const ADMIN_CONSOLE_HOST = 'localhost';
     private const ADMIN_CONSOLE_DIR = __DIR__ . '/../../frontend';
+
+    public function __construct(
+        private readonly RequestStack $requestStack
+    ) {}
 
     /**
      * Vérifier l'état du serveur Vue 3
@@ -27,7 +31,7 @@ class AdminConsoleController extends AbstractController
         return $this->json([
             'running' => $isRunning,
             'port' => self::ADMIN_CONSOLE_PORT,
-            'url' => "http://" . self::ADMIN_CONSOLE_HOST . ":" . self::ADMIN_CONSOLE_PORT,
+            'url' => $this->getFrontendUrl(),
         ]);
     }
 
@@ -131,5 +135,24 @@ class AdminConsoleController extends AbstractController
         }
 
         return false;
+    }
+
+    /**
+     * Construire l'URL du frontend avec le port 5173
+     * Utilise le host dynamique de la requête actuelle
+     */
+    private function getFrontendUrl(): string
+    {
+        $request = $this->requestStack->getCurrentRequest();
+        
+        if (!$request) {
+            return 'http://localhost:' . self::ADMIN_CONSOLE_PORT;
+        }
+        
+        // Récupérer le scheme (http/https) et le host de la requête actuelle
+        $scheme = $request->getScheme();
+        $host = $request->getHost(); // Inclut le host sans le port
+        
+        return "{$scheme}://{$host}:" . self::ADMIN_CONSOLE_PORT;
     }
 }

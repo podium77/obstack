@@ -45,6 +45,15 @@
             <span>🔌 Connections</span>
           </router-link>
           <router-link
+            to="/query-builder"
+            class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
+            :class="$route.name === 'QueryBuilder'
+              ? 'bg-blue-100 text-blue-900'
+              : 'text-gray-600 hover:bg-gray-100'"
+          >
+            <span>📋 Query Builder</span>
+          </router-link>
+          <router-link
             to="/audit"
             class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-colors"
             :class="$route.name === 'AuditLogs'

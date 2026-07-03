@@ -34,6 +34,11 @@ security:
             pattern: ^/api/(company/detect|login|refresh-token)
             security: false
 
+        # Query Builder API — public
+        api_database:
+            pattern: ^/api/database/
+            security: false
+
         # API Admin avec JWT
         api_admin:
             pattern: ^/api/

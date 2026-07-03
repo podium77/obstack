@@ -3,6 +3,7 @@
 namespace App\Service\DatabaseConnector;
 
 use App\Entity\DatabaseConnection;
+use App\Service\PasswordEncryptionService;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -14,10 +15,14 @@ use Psr\Log\LoggerInterface;
 class DatabaseConnectorFactory
 {
     private LoggerInterface $logger;
+    private PasswordEncryptionService $passwordEncryption;
 
-    public function __construct(LoggerInterface $logger)
-    {
+    public function __construct(
+        LoggerInterface $logger,
+        PasswordEncryptionService $passwordEncryption
+    ) {
         $this->logger = $logger;
+        $this->passwordEncryption = $passwordEncryption;
     }
 
     /**
@@ -32,10 +37,10 @@ class DatabaseConnectorFactory
     public function create(DatabaseConnection $connection): DatabaseConnectorInterface
     {
         return match($connection->getType()) {
-            DatabaseConnection::TYPE_MYSQL => new MysqlConnector($connection, $this->logger),
-            DatabaseConnection::TYPE_POSTGRESQL => new PostgresqlConnector($connection, $this->logger),
-            DatabaseConnection::TYPE_NEO4J => new Neo4jConnector($connection, $this->logger),
-            DatabaseConnection::TYPE_ARANGODB => new ArangodbConnector($connection, $this->logger),
+            DatabaseConnection::TYPE_MYSQL => new MysqlConnector($connection, $this->logger, $this->passwordEncryption),
+            DatabaseConnection::TYPE_POSTGRESQL => new PostgresqlConnector($connection, $this->logger, $this->passwordEncryption),
+            DatabaseConnection::TYPE_NEO4J => new Neo4jConnector($connection, $this->logger, $this->passwordEncryption),
+            DatabaseConnection::TYPE_ARANGODB => new ArangodbConnector($connection, $this->logger, $this->passwordEncryption),
             default => throw new \InvalidArgumentException(
                 sprintf('Type de base de données inconnu: %s', $connection->getType())
             ),

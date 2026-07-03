@@ -38,6 +38,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/QueryExecutorView.vue')
       },
       {
+        path: 'query-builder',
+        name: 'QueryBuilder',
+        component: () => import('@/views/QueryBuilderView.vue')
+      },
+      {
         path: 'audit',
         name: 'AuditLogs',
         component: () => import('@/views/AuditLogsView.vue')

@@ -3,6 +3,7 @@
 namespace App\Service\DatabaseConnector;
 
 use App\Entity\DatabaseConnection;
+use App\Service\PasswordEncryptionService;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -15,13 +16,18 @@ abstract class AbstractDatabaseConnector implements DatabaseConnectorInterface
 {
     protected DatabaseConnection $connection;
     protected LoggerInterface $logger;
+    protected PasswordEncryptionService $passwordEncryption;
     protected bool $connected = false;
     protected mixed $dbConnection = null;
 
-    public function __construct(DatabaseConnection $connection, LoggerInterface $logger)
-    {
+    public function __construct(
+        DatabaseConnection $connection,
+        LoggerInterface $logger,
+        PasswordEncryptionService $passwordEncryption
+    ) {
         $this->connection = $connection;
         $this->logger = $logger;
+        $this->passwordEncryption = $passwordEncryption;
     }
 
     abstract public function connect(): void;
@@ -70,6 +76,24 @@ abstract class AbstractDatabaseConnector implements DatabaseConnectorInterface
     protected function getConnectionTimeout(): int
     {
         return $this->connection->getAdvancedOptions()['timeout'] ?? 30;
+    }
+
+    /**
+     * Récupère le mot de passe déchiffré
+     */
+    protected function getDecryptedPassword(): string
+    {
+        $encrypted = $this->connection->getEncryptedPassword();
+        if (empty($encrypted)) {
+            return '';
+        }
+        
+        try {
+            return $this->passwordEncryption->decrypt($encrypted);
+        } catch (\Exception $e) {
+            $this->logError('Failed to decrypt password', ['error' => $e->getMessage()]);
+            throw new \RuntimeException('Password decryption failed: ' . $e->getMessage(), 0, $e);
+        }
     }
 
     protected function getPoolSize(): int

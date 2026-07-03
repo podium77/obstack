@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
@@ -37,6 +38,7 @@ class AdminController extends AbstractController
         private readonly EntityManagerInterface     $em,
         private readonly UserPasswordHasherInterface $hasher,
         private readonly CompanyRepository          $companyRepo,
+        private readonly RequestStack              $requestStack
     ) {}
 
     // ─── Tableau de bord admin ────────────────────────────────────────
@@ -404,7 +406,7 @@ class AdminController extends AbstractController
         return $this->json([
             'running' => $running,
             'port' => 5173,
-            'url' => 'http://localhost:5173'
+            'url' => $this->getFrontendUrl()
         ]);
     }
 
@@ -495,5 +497,24 @@ class AdminController extends AbstractController
                 'message' => 'Erreur: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Construire l'URL du frontend avec le port 5173
+     * Utilise le host dynamique de la requête actuelle
+     */
+    private function getFrontendUrl(): string
+    {
+        $request = $this->requestStack->getCurrentRequest();
+        
+        if (!$request) {
+            return 'http://localhost:5173';
+        }
+        
+        // Récupérer le scheme (http/https) et le host de la requête actuelle
+        $scheme = $request->getScheme();
+        $host = $request->getHost(); // Inclut le host sans le port
+        
+        return "{$scheme}://{$host}:5173";
     }
 }

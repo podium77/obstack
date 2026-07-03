@@ -3,6 +3,7 @@
 namespace App\Service\DatabaseConnector;
 
 use App\Entity\DatabaseConnection;
+use App\Service\PasswordEncryptionService;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -13,6 +14,13 @@ use Psr\Log\LoggerInterface;
  */
 class Neo4jConnector extends AbstractDatabaseConnector
 {
+    public function __construct(
+        DatabaseConnection $connection,
+        LoggerInterface $logger,
+        PasswordEncryptionService $passwordEncryption
+    ) {
+        parent::__construct($connection, $logger, $passwordEncryption);
+    }
     public function connect(): void
     {
         throw new \RuntimeException('Neo4j connector not yet implemented. Install neo4j/neo4j-php-client');

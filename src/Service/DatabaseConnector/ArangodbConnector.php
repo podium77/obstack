@@ -3,6 +3,7 @@
 namespace App\Service\DatabaseConnector;
 
 use App\Entity\DatabaseConnection;
+use App\Service\PasswordEncryptionService;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -13,6 +14,13 @@ use Psr\Log\LoggerInterface;
  */
 class ArangodbConnector extends AbstractDatabaseConnector
 {
+    public function __construct(
+        DatabaseConnection $connection,
+        LoggerInterface $logger,
+        PasswordEncryptionService $passwordEncryption
+    ) {
+        parent::__construct($connection, $logger, $passwordEncryption);
+    }
     public function connect(): void
     {
         throw new \RuntimeException('ArangoDB connector not yet implemented. Install arangodb/arangodb-php');

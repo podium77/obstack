@@ -10,6 +10,16 @@
   --warning: #f59e0b;
   --error: #ef4444;
   --info: #3b82f6;
+  
+  /* Theme colors for custom components */
+  --color-bg: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-bg-tertiary: #f3f4f6;
+  --color-text: #111827;
+  --color-text-secondary: #6b7280;
+  --color-border: #e5e7eb;
+  --color-primary: #667eea;
+  --color-primary-hover: #5568d3;
 }
 
 * {

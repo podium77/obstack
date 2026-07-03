@@ -3,6 +3,7 @@
 namespace App\Service\DatabaseConnector;
 
 use App\Entity\DatabaseConnection;
+use App\Service\PasswordEncryptionService;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -10,11 +11,14 @@ use Psr\Log\LoggerInterface;
  */
 class PostgresqlConnector extends AbstractDatabaseConnector
 {
-    private \PDO $pdo;
+    private ?\PDO $pdo = null;
 
-    public function __construct(DatabaseConnection $connection, LoggerInterface $logger)
-    {
-        parent::__construct($connection, $logger);
+    public function __construct(
+        DatabaseConnection $connection,
+        LoggerInterface $logger,
+        PasswordEncryptionService $passwordEncryption
+    ) {
+        parent::__construct($connection, $logger, $passwordEncryption);
     }
 
     public function connect(): void
@@ -30,7 +34,7 @@ class PostgresqlConnector extends AbstractDatabaseConnector
             $this->pdo = new \PDO(
                 $dsn,
                 $this->connection->getUsername(),
-                $this->connection->getEncryptedPassword(),
+                $this->getDecryptedPassword(),
                 [
                     \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
                     \PDO::ATTR_TIMEOUT => $this->getConnectionTimeout(),
