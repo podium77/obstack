@@ -115,8 +115,8 @@
                             <i class="ti ti-{{ app.agentToken.isOnline ? 'radio' : 'radio-off' }}"></i>
                             {{ app.agentToken.isOnline ? 'En ligne' : 'Hors ligne' }}
                         </span>
-                        {% if app.agentToken.lastSeenAt %}
-                        <div class="text-muted text-sm">{{ app.agentToken.lastSeenAt|date('H:i:s') }}</div>
+                        {% if app.agentToken.lastHeartbeatAt %}
+                        <div class="text-muted text-sm">{{ app.agentToken.lastHeartbeatAt|date('H:i:s') }}</div>
                         {% endif %}
                     {% else %}
                         <span class="severity-badge severity-warning">Pas d'agent</span>
@@ -164,9 +164,9 @@
                 <td class="font-mono text-sm">{{ token.maskedToken }}</td>
                 <td>{{ token.application ? token.application.name : '—' }}</td>
                 <td>
-                    {% if token.lastSeenAt %}
-                        <div style="font-size:12px">{{ token.lastSeenAt|date('d/m H:i') }}</div>
-                        <div class="text-muted text-sm">{{ token.lastSeenIp }}</div>
+                    {% if token.lastHeartbeatAt %}
+                        <div style="font-size:12px">{{ token.lastHeartbeatAt|date('d/m H:i') }}</div>
+                        <div class="text-muted text-sm">{{ token.detectedIp }}</div>
                     {% else %}
                         <span class="text-muted">Jamais</span>
                     {% endif %}
