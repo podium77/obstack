@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: AlertRepository::class)]
 #[ORM\Table(name: 'alerts')]
 #[ORM\Index(columns: ['application_id', 'resolved', 'created_at'], name: 'idx_alert_app_status')]
+#[ORM\Index(columns: ['resolved', 'created_at'], name: 'idx_alerts_created_resolved')]
 class Alert
 {
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]

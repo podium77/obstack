@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: EnvironmentUserRepository::class)]
 #[ORM\Table(name: 'environment_users')]
+#[ORM\Index(columns: ['environment_id', 'user_id', 'active'], name: 'idx_env_users_active')]
 #[ORM\UniqueConstraint(name: 'uniq_env_user', fields: ['environment', 'user'])]
 class EnvironmentUser
 {

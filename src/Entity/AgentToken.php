@@ -8,6 +8,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AgentTokenRepository::class)]
 #[ORM\Table(name: 'agent_tokens')]
+#[ORM\Index(columns: ['environment_id', 'is_active', 'last_heartbeat_at'], name: 'idx_agent_tokens_active')]
 #[ORM\HasLifecycleCallbacks]
 class AgentToken
 {

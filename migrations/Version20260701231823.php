@@ -44,12 +44,9 @@ final class Version20260701231823 extends AbstractMigration
         $this->addSql('ALTER TABLE role_permissions ADD CONSTRAINT FK_1FBA94E6FED90CCA FOREIGN KEY (permission_id) REFERENCES permissions (id) ON DELETE CASCADE');
         $this->addSql('ALTER TABLE role_inheritance ADD CONSTRAINT FK_2852FA18D60322AC FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE role_inheritance ADD CONSTRAINT FK_2852FA18A44B56EA FOREIGN KEY (parent_role_id) REFERENCES roles (id) ON DELETE CASCADE NOT DEFERRABLE');
-        $this->addSql('ALTER TABLE agent_tokens DROP CONSTRAINT fk_f4bd46a83e030acd');
-        $this->addSql('DROP INDEX idx_f4bd46a83e030acd');
-        $this->addSql('ALTER TABLE agent_tokens ADD CONSTRAINT FK_F4BD46A83E030ACD FOREIGN KEY (application_id) REFERENCES applications (id) ON DELETE SET NULL NOT DEFERRABLE');
-        $this->addSql('CREATE UNIQUE INDEX UNIQ_F4BD46A83E030ACD ON agent_tokens (application_id)');
-        $this->addSql('ALTER TABLE local_users ADD is_global_admin BOOLEAN NOT NULL');
-        $this->addSql('ALTER TABLE local_users ADD role_id INT DEFAULT NULL');
+        $this->addSql('ALTER TABLE local_users ADD COLUMN IF NOT EXISTS is_global_admin BOOLEAN DEFAULT FALSE NOT NULL');
+        $this->addSql('ALTER TABLE local_users ALTER is_global_admin DROP DEFAULT');
+        $this->addSql('ALTER TABLE local_users ADD COLUMN IF NOT EXISTS role_id INT DEFAULT NULL');
         $this->addSql('ALTER TABLE local_users ADD CONSTRAINT FK_B6539EDD60322AC FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE SET NULL NOT DEFERRABLE');
         $this->addSql('CREATE INDEX IDX_B6539EDD60322AC ON local_users (role_id)');
     }
@@ -73,8 +70,6 @@ final class Version20260701231823 extends AbstractMigration
         $this->addSql('DROP TABLE role_inheritance');
         $this->addSql('ALTER TABLE agent_tokens DROP CONSTRAINT FK_F4BD46A83E030ACD');
         $this->addSql('DROP INDEX UNIQ_F4BD46A83E030ACD');
-        $this->addSql('ALTER TABLE agent_tokens ADD CONSTRAINT fk_f4bd46a83e030acd FOREIGN KEY (application_id) REFERENCES applications (id) NOT DEFERRABLE INITIALLY IMMEDIATE');
-        $this->addSql('CREATE INDEX idx_f4bd46a83e030acd ON agent_tokens (application_id)');
         $this->addSql('ALTER TABLE local_users DROP CONSTRAINT FK_B6539EDD60322AC');
         $this->addSql('DROP INDEX IDX_B6539EDD60322AC');
         $this->addSql('ALTER TABLE local_users DROP is_global_admin');

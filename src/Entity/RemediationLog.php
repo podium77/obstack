@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: RemediationLogRepository::class)]
 #[ORM\Table(name: 'remediation_logs')]
 #[ORM\Index(columns: ['application_id', 'executed_at'], name: 'idx_rem_app_date')]
+#[ORM\Index(columns: ['executed_at'], name: 'idx_remediation_logs_executed_at')]
 class RemediationLog
 {
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]

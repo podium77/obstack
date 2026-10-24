@@ -25,7 +25,7 @@ final class Version20260702000001 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        $this->addSql('DROP INDEX idx_audit_execution_time ON audit_logs');
+        $this->addSql('DROP INDEX idx_audit_execution_time');
         $this->addSql('ALTER TABLE audit_logs DROP COLUMN execution_time');
     }
 }

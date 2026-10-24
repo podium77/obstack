@@ -6,6 +6,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: KubernetesPodRepository::class)]
 #[ORM\Table(name: 'kubernetes_pods')]
+#[ORM\Index(columns: ['node_id', 'phase'], name: 'idx_k8s_pods_phase')]
 #[ORM\HasLifecycleCallbacks]
 class KubernetesPod
 {

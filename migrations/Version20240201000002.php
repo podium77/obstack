@@ -36,7 +36,7 @@ final class Version20240201000002 extends AbstractMigration
             ON kubernetes_pods (node_id, phase)');
 
         $this->addSql('CREATE INDEX IF NOT EXISTS idx_agent_tokens_active
-            ON agent_tokens (environment_id, active, last_seen_at)');
+            ON agent_tokens (environment_id, is_active, last_heartbeat_at)');
 
         $this->addSql('CREATE INDEX IF NOT EXISTS idx_env_users_active
             ON environment_users (environment_id, user_id, active)');
@@ -58,7 +58,7 @@ final class Version20240201000002 extends AbstractMigration
                 COUNT(DISTINCT a.id) AS total_apps,
                 COUNT(DISTINCT CASE WHEN a.active THEN a.id END) AS active_apps,
                 COUNT(DISTINCT at.id) AS total_tokens,
-                COUNT(DISTINCT CASE WHEN at.active AND at.last_seen_at > NOW() - INTERVAL \'3 minutes\'
+                COUNT(DISTINCT CASE WHEN at.is_active AND at.last_heartbeat_at > NOW() - INTERVAL \'3 minutes\'
                     THEN at.id END) AS online_agents,
                 COUNT(DISTINCT CASE WHEN al.resolved = false THEN al.id END) AS active_alerts,
                 COUNT(DISTINCT kn.id) AS k8s_nodes,
@@ -83,10 +83,10 @@ final class Version20240201000002 extends AbstractMigration
                 at.id                   AS token_id,
                 at.name                 AS token_name,
                 at.detected_hostname    AS hostname,
-                at.last_seen_ip         AS ip,
-                at.last_seen_at,
-                at.active               AS token_active,
-                CASE WHEN at.last_seen_at > NOW() - INTERVAL \'3 minutes\'
+                at.detected_ip          AS ip,
+                at.last_heartbeat_at,
+                at.is_active            AS token_active,
+                CASE WHEN at.last_heartbeat_at > NOW() - INTERVAL \'3 minutes\'
                     THEN true ELSE false END AS is_online,
                 a.id                    AS application_id,
                 a.name                  AS application_name,
@@ -96,7 +96,7 @@ final class Version20240201000002 extends AbstractMigration
             JOIN environments e ON e.id = at.environment_id
             JOIN companies c ON c.id = e.company_id
             LEFT JOIN applications a ON a.id = at.application_id
-            WHERE at.active = true AND e.active = true AND c.active = true');
+            WHERE at.is_active = true AND e.active = true AND c.active = true');
 
         // Fonction PostgreSQL pour purger les anciennes métriques
         $this->addSql("CREATE OR REPLACE FUNCTION purge_old_metrics(retention_days INTEGER DEFAULT 90)

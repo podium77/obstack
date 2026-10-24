@@ -18,6 +18,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 #[ORM\Entity(repositoryClass: ApplicationRepository::class)]
 #[ORM\Table(name: 'applications')]
+#[ORM\Index(columns: ['environment_id', 'active'], name: 'idx_applications_active_env')]
 #[ORM\HasLifecycleCallbacks]
 class Application
 {

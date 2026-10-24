@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: MetricSnapshotRepository::class)]
 #[ORM\Table(name: 'metric_snapshots')]
 #[ORM\Index(columns: ['application_id', 'collected_at'], name: 'idx_snap_app_date')]
+#[ORM\Index(columns: ['application_id', 'severity', 'collected_at'], name: 'idx_snapshots_severity', options: ['where' => "((severity)::text <> 'ok'::text)"])]
 class MetricSnapshot
 {
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]

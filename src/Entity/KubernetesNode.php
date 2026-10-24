@@ -13,6 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: KubernetesNodeRepository::class)]
 #[ORM\Table(name: 'kubernetes_nodes')]
+#[ORM\Index(columns: ['environment_id', 'role', 'status'], name: 'idx_k8s_nodes_role')]
 #[ORM\HasLifecycleCallbacks]
 class KubernetesNode
 {
